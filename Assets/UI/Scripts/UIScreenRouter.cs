@@ -148,6 +148,8 @@ namespace CircuitOneStroke.UI
         public void ShowHome()
         {
             _history.Clear();
+            _outOfHeartsVisible = false;
+            _resultDialogVisible = false;
             HideAllScreens();
             SetScreenActive(Screen.Home, true);
             CurrentScreen = Screen.Home;
@@ -173,6 +175,8 @@ namespace CircuitOneStroke.UI
         private void DoShowLevelSelect()
         {
             _history.Clear();
+            _outOfHeartsVisible = false;
+            _resultDialogVisible = false;
             HideAllScreens();
             SetScreenActive(Screen.LevelSelect, true);
             CurrentScreen = Screen.LevelSelect;
@@ -198,6 +202,7 @@ namespace CircuitOneStroke.UI
         private void DoShowGameHUD()
         {
             _history.Clear();
+            _outOfHeartsVisible = false;
             HideAllScreens();
             SetScreenActive(Screen.GameHUD, true);
             CurrentScreen = Screen.GameHUD;
@@ -228,6 +233,9 @@ namespace CircuitOneStroke.UI
             var target = _history.Count > 0 ? _history.Pop() : Screen.Home;
             if (target == Screen.Settings || target == Screen.Shop || target == Screen.OutOfHearts)
                 target = Screen.Home;
+
+            if (CurrentScreen == Screen.OutOfHearts)
+                _outOfHeartsVisible = false;
 
             HideAllScreens();
             SetScreenActive(target, true);
