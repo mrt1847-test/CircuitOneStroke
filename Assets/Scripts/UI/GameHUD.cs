@@ -12,10 +12,15 @@ namespace CircuitOneStroke.UI
         [SerializeField] private GameObject failPanel;
         [SerializeField] private Text levelLabel;
 
+        private GameStateMachine _stateMachine;
+
         private void Start()
         {
-            if (levelLoader != null && levelLoader.StateMachine != null)
-                levelLoader.StateMachine.OnStateChanged += OnStateChanged;
+            if (levelLoader != null)
+            {
+                levelLoader.OnStateMachineChanged += HandleStateMachineChanged;
+                HandleStateMachineChanged(levelLoader.StateMachine);
+            }
 
             if (retryButton != null)
             {
@@ -25,14 +30,35 @@ namespace CircuitOneStroke.UI
             }
 
             RefreshVisibility();
-            if (levelLabel != null && levelLoader?.LevelData != null)
-                levelLabel.text = $"Level {levelLoader.LevelData.levelId}";
+            UpdateLevelLabel();
         }
 
         private void OnDestroy()
         {
-            if (levelLoader != null && levelLoader.StateMachine != null)
-                levelLoader.StateMachine.OnStateChanged -= OnStateChanged;
+            if (levelLoader != null)
+                levelLoader.OnStateMachineChanged -= HandleStateMachineChanged;
+            if (_stateMachine != null)
+                _stateMachine.OnStateChanged -= OnStateChanged;
+        }
+
+        private void HandleStateMachineChanged(GameStateMachine stateMachine)
+        {
+            if (_stateMachine != null)
+                _stateMachine.OnStateChanged -= OnStateChanged;
+
+            _stateMachine = stateMachine;
+
+            if (_stateMachine != null)
+                _stateMachine.OnStateChanged += OnStateChanged;
+
+            RefreshVisibility();
+            UpdateLevelLabel();
+        }
+
+        private void UpdateLevelLabel()
+        {
+            if (levelLabel != null && levelLoader?.LevelData != null)
+                levelLabel.text = $"Level {levelLoader.LevelData.levelId}";
         }
 
         private void OnStateChanged(GameState state)
