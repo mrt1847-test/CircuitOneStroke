@@ -3,6 +3,10 @@ using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.View
 {
+    /// <summary>
+    /// LevelRuntime.StrokeNodes 순서대로 현재 한 붓 경로를 LineRenderer로 그림.
+    /// LevelLoader가 로드 시 Bind(runtime) 호출.
+    /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class StrokeRenderer : MonoBehaviour
     {
@@ -20,11 +24,13 @@ namespace CircuitOneStroke.View
             _lr.startWidth = _lr.endWidth = lineWidth;
         }
 
+        /// <summary>LevelLoader.LoadCurrent에서 호출. 이후 Update에서 이 런타임의 StrokeNodes로 라인 갱신.</summary>
         public void Bind(LevelRuntime runtime)
         {
             _runtime = runtime;
         }
 
+        /// <summary>매 프레임 StrokeNodes 경로로 라인 포지션 갱신. 노드 위치는 LevelData에서 조회.</summary>
         private void Update()
         {
             if (_runtime == null || _runtime.StrokeNodes == null || _runtime.StrokeNodes.Count == 0)
@@ -40,9 +46,7 @@ namespace CircuitOneStroke.View
             for (int i = 0; i < _runtime.StrokeNodes.Count; i++)
             {
                 int id = _runtime.StrokeNodes[i];
-                Vector2 pos = Vector2.zero;
-                foreach (var n in nodes)
-                    if (n.id == id) { pos = n.pos; break; }
+                Vector2 pos = _runtime.GetNodePosition(id);
                 _lr.SetPosition(i, new Vector3(pos.x, pos.y, -0.1f));
             }
         }

@@ -10,6 +10,7 @@ namespace CircuitOneStroke.Core
     {
         private readonly Dictionary<int, List<(int neighborId, EdgeData edge)>> _adjacency = new Dictionary<int, List<(int, EdgeData)>>();
 
+        /// <summary>LevelData로부터 인접 리스트 구성. 양방향 엣지는 a↔b 모두 등록.</summary>
         public GraphModel(LevelData levelData)
         {
             if (levelData?.nodes == null || levelData.edges == null)
@@ -30,11 +31,13 @@ namespace CircuitOneStroke.Core
             }
         }
 
+        /// <summary>nodeId의 이웃 목록 (이웃 id, 엣지 데이터). 없으면 null.</summary>
         public IReadOnlyList<(int neighborId, EdgeData edge)> GetNeighbors(int nodeId)
         {
             return _adjacency.TryGetValue(nodeId, out var list) ? list : null;
         }
 
+        /// <summary>from → to 엣지가 있으면 true 및 edge 반환.</summary>
         public bool TryGetEdge(int fromNodeId, int toNodeId, out EdgeData edge)
         {
             edge = null;

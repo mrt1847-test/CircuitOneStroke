@@ -20,7 +20,9 @@ namespace CircuitOneStroke.UI
 
         private int _currentLevelId = 1;
 
+        /// <summary>Manifest 사용 시 1, 아니면 minLevelId.</summary>
         private int EffectiveMin => levelManifest != null ? 1 : minLevelId;
+        /// <summary>Manifest 사용 시 manifest 개수, 아니면 maxLevelId.</summary>
         private int EffectiveMax => levelManifest != null ? Mathf.Max(1, levelManifest.Count) : maxLevelId;
 
         private void Start()

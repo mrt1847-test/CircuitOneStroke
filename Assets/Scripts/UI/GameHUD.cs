@@ -4,6 +4,9 @@ using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.UI
 {
+    /// <summary>
+    /// 게임 중 HUD: 상태에 따라 성공/실패 패널·재시도 버튼 표시, 레벨 번호 라벨, 재시도 시 LoadCurrent.
+    /// </summary>
     public class GameHUD : MonoBehaviour
     {
         [SerializeField] private LevelLoader levelLoader;
@@ -70,6 +73,7 @@ namespace CircuitOneStroke.UI
                 Core.GameFeedback.Instance?.PlayFail();
         }
 
+        /// <summary>Success/Fail일 때만 패널·재시도 버튼 표시.</summary>
         private void RefreshVisibility()
         {
             var state = levelLoader?.StateMachine?.State ?? GameState.Idle;
@@ -78,6 +82,7 @@ namespace CircuitOneStroke.UI
             if (retryButton != null) retryButton.SetActive(state == GameState.Success || state == GameState.Fail);
         }
 
+        /// <summary>재시도 시 현재 레벨 재로드(LoadCurrent) 후 패널 숨김.</summary>
         private void OnRetryClicked()
         {
             if (levelLoader != null)

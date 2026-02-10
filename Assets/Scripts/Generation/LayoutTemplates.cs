@@ -14,6 +14,7 @@ namespace CircuitOneStroke.Generation
         public Vector2[] slots;
     }
 
+    /// <summary>노드 수별 레이아웃(링·그리드·클러스터 등) 슬롯 제공. LevelGenerator에서 사용.</summary>
     public static class LayoutTemplates
     {
         private const float RingRadius = 3.5f;

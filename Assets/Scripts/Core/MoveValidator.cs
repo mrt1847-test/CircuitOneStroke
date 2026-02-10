@@ -2,6 +2,10 @@ using CircuitOneStroke.Data;
 
 namespace CircuitOneStroke.Core
 {
+    /// <summary>
+    /// 현재 노드에서 nextNodeId로의 이동 가능 여부를 검사하고, 허용 시 런타임 상태를 갱신.
+    /// GameStateMachine이 Drawing 상태에서 TryMoveTo 시 호출.
+    /// </summary>
     public class MoveValidator
     {
         private readonly LevelRuntime _runtime;
@@ -11,6 +15,9 @@ namespace CircuitOneStroke.Core
             _runtime = runtime;
         }
 
+        /// <summary>
+        /// nextNodeId로 이동 시도. Reject=이동 불가, Fail=재방문 등 규칙 위반(즉시 실패), Ok=이동 처리 완료.
+        /// </summary>
         public MoveResult TryMoveTo(int nextNodeId)
         {
             int current = _runtime.CurrentNodeId;
@@ -32,7 +39,7 @@ namespace CircuitOneStroke.Core
             var node = _runtime.GetNode(nextNodeId);
             if (node == null)
                 return MoveResult.Reject;
-            // Revisit any node (Bulb or Switch) = instant Fail with clear feedback.
+            // 한 붓 안에서 이미 지나간 노드 재방문 = 즉시 Fail (클리어 불가)
             if (_runtime.StrokeContains(nextNodeId))
                 return MoveResult.Fail;
             if (node.nodeType == NodeType.Bulb && _runtime.VisitedBulbs.Contains(nextNodeId))

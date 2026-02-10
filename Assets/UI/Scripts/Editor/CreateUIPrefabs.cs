@@ -6,11 +6,15 @@ using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.Editor
 {
+    /// <summary>
+    /// 메뉴로 uGUI 프리팹 생성: Panel, Button, ProgressSlider. 테마 참조·ThemeApplier/ThemeRole 부착.
+    /// </summary>
     public static class CreateUIPrefabs
     {
         private const string PrefabsPath = "Assets/UI/Prefabs";
         private const string ThemePath = "Assets/UI/Theme/CircuitOneStrokeTheme.asset";
 
+        /// <summary>Theme 없으면 먼저 생성 후, Panel/Button/ProgressSlider 프리팹 저장. 씬에 오브젝트 있어야 SaveAsPrefabAsset 동작.</summary>
         [MenuItem("Circuit One-Stroke/UI/Create UI Prefabs (Panel, Button, Progress)")]
         public static void CreateAll()
         {

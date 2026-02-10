@@ -5,6 +5,10 @@ using System;
 
 namespace CircuitOneStroke.Core
 {
+    /// <summary>
+    /// LevelData를 로드해 런타임·상태 기계를 만들고, 노드/엣지 뷰를 생성.
+    /// 씬에서 노드 루트·엣지 루트·프리팹·StrokeRenderer 참조 보유.
+    /// </summary>
     public class LevelLoader : MonoBehaviour
     {
         [SerializeField] private LevelData levelData;
@@ -24,6 +28,7 @@ namespace CircuitOneStroke.Core
         public LevelData LevelData => levelData;
         public event Action<GameStateMachine> OnStateMachineChanged;
 
+        /// <summary>방문한 전구에 맞춰 노드 뷰의 시각 상태 갱신.</summary>
         public void RefreshNodeViews()
         {
             if (_nodeViews == null || _runtime == null) return;
@@ -32,6 +37,7 @@ namespace CircuitOneStroke.Core
                 nv.SetVisited(visited.Contains(nv.NodeId));
         }
 
+        /// <summary>edgeId에 해당하는 EdgeView 반환. 리젝트 플래시 등에 사용.</summary>
         public EdgeView GetEdgeView(int edgeId)
         {
             if (_edgeViews == null) return null;
@@ -40,12 +46,14 @@ namespace CircuitOneStroke.Core
             return null;
         }
 
+        /// <summary>지정 LevelData로 교체 후 현재 레벨 재로드.</summary>
         public void LoadLevel(LevelData data)
         {
             levelData = data;
             LoadCurrent();
         }
 
+        /// <summary>Resources/Levels/Level_{levelId} 로드 후 적용.</summary>
         public void LoadLevel(int levelId)
         {
             var data = Resources.Load<LevelData>($"Levels/Level_{levelId}");
@@ -53,6 +61,7 @@ namespace CircuitOneStroke.Core
                 LoadLevel(data);
         }
 
+        /// <summary>현재 levelData로 런타임·상태기계·노드/엣지 뷰 재구성.</summary>
         public void LoadCurrent()
         {
             if (levelData == null) return;
@@ -71,6 +80,7 @@ namespace CircuitOneStroke.Core
             SpawnEdges();
         }
 
+        /// <summary>기존 노드/엣지 뷰 제거 및 배열 초기화.</summary>
         private void Clear()
         {
             if (nodesRoot != null)
@@ -87,6 +97,7 @@ namespace CircuitOneStroke.Core
             _edgeViews = null;
         }
 
+        /// <summary>levelData.nodes 기준으로 노드 뷰 인스턴스 생성.</summary>
         private void SpawnNodes()
         {
             if (levelData.nodes == null || nodeViewPrefab == null || nodesRoot == null) return;
@@ -104,6 +115,7 @@ namespace CircuitOneStroke.Core
             }
         }
 
+        /// <summary>levelData.edges 기준으로 엣지 뷰 인스턴스 생성. 게이트/다이오드 정보 전달.</summary>
         private void SpawnEdges()
         {
             if (levelData.edges == null || edgeViewPrefab == null || edgesRoot == null) return;
@@ -123,6 +135,7 @@ namespace CircuitOneStroke.Core
             }
         }
 
+        /// <summary>엣지 스폰 시 노드 위치 조회용. (런타임 캐시는 로드 후 사용 가능)</summary>
         private Vector2 GetNodePos(int nodeId)
         {
             if (levelData?.nodes == null) return Vector2.zero;
@@ -131,6 +144,7 @@ namespace CircuitOneStroke.Core
             return Vector2.zero;
         }
 
+        /// <summary>levelData가 비어 있으면 Level_1 로드 후 LoadCurrent.</summary>
         private void Start()
         {
             if (levelData == null)

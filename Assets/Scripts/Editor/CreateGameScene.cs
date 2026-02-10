@@ -6,8 +6,12 @@ using UnityEngine.UI;
 
 namespace CircuitOneStroke.Editor
 {
+    /// <summary>
+    /// 메뉴로 GameScene 한 번에 구성. 카메라·Game(LevelLoader·Nodes·Edges·StrokeRenderer·GameFeedback)·TouchInput·Canvas·HUD 등.
+    /// </summary>
     public static class CreateGameScene
     {
+        /// <summary>Level_1 없으면 생성 후, 씬·오브젝트·프리팹 placeholder·Canvas 구조 생성.</summary>
         [MenuItem("Circuit One-Stroke/Create Game Scene")]
         public static void CreateScene()
         {

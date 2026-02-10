@@ -4,6 +4,9 @@ using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.UI
 {
+    /// <summary>
+    /// 설정 토글과 GameSettings 연동. 소리·진동·Fail 모드(RejectOnly vs ImmediateFail).
+    /// </summary>
     public class SettingsPanel : MonoBehaviour
     {
         [SerializeField] private Toggle soundToggle;

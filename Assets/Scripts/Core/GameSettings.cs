@@ -2,12 +2,14 @@ using UnityEngine;
 
 namespace CircuitOneStroke.Core
 {
+    /// <summary>이동 불가 시 동작. RejectOnly=진입만 막음, ImmediateFail=스트로크 즉시 실패.</summary>
     public enum FailFeedbackMode
     {
         RejectOnly,
         ImmediateFail
     }
 
+    /// <summary>PlayerPrefs 기반 설정. 소리·진동·Fail 모드.</summary>
     public static class GameSettings
     {
         private const string KeyFailMode = "CircuitOneStroke_FailMode";
@@ -32,6 +34,7 @@ namespace CircuitOneStroke.Core
             set => PlayerPrefs.SetInt(KeyVibrate, value ? 1 : 0);
         }
 
+        /// <summary>변경 후 호출 권장. PlayerPrefs.Save().</summary>
         public static void Save() => PlayerPrefs.Save();
     }
 }

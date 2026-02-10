@@ -4,6 +4,10 @@ using CircuitOneStroke.View;
 
 namespace CircuitOneStroke.Input
 {
+    /// <summary>
+    /// 터치/에디터 마우스 입력을 받아 스트로크 시작·이동·종료를 GameStateMachine에 전달.
+    /// 스냅/커밋 반경으로 인접 노드만 후보로 두고, commitRadius 안에서만 TryMoveTo 호출.
+    /// </summary>
     public class TouchInputController : MonoBehaviour
     {
         [SerializeField] private LevelLoader levelLoader;
@@ -15,6 +19,7 @@ namespace CircuitOneStroke.Input
         [SerializeField] private LayerMask nodeLayer = -1;
 
         private GameStateMachine _stateMachine;
+        /// <summary>같은 노드에 연속 커밋 방지.</summary>
         private int _lastCommittedNodeId = -1;
 
         private void Start()
@@ -60,6 +65,7 @@ namespace CircuitOneStroke.Input
                 _lastCommittedNodeId = -1;
         }
 
+        /// <summary>터치 시 터치 입력, 에디터에서는 마우스로 터치 시뮬레이션.</summary>
         private void Update()
         {
             if (_stateMachine == null || levelLoader?.Runtime == null) return;
@@ -108,6 +114,7 @@ namespace CircuitOneStroke.Input
                 HandleTouchEnd();
         }
 
+        /// <summary>Idle일 때만. 터치 위치에 노드가 있으면 그 노드에서 스트로크 시작.</summary>
         private void HandleTouchStart(Vector3 worldPos)
         {
             if (_stateMachine.State != GameState.Idle) return;
@@ -121,6 +128,7 @@ namespace CircuitOneStroke.Input
             }
         }
 
+        /// <summary>Drawing일 때만. 현재 노드 이웃 중 가장 가까운 노드를 스냅 후보로 두고, commitRadius 내면 이동 시도.</summary>
         private void HandleTouchMove(Vector3 worldPos)
         {
             if (_stateMachine.State != GameState.Drawing) return;
@@ -172,12 +180,14 @@ namespace CircuitOneStroke.Input
             }
         }
 
+        /// <summary>손가락 떼면 스트로크 종료(EndStroke).</summary>
         private void HandleTouchEnd()
         {
             if (_stateMachine.State == GameState.Drawing)
                 _stateMachine.EndStroke();
         }
 
+        /// <summary>월드 좌표에서 nodeLayer로 OverlapPoint. NodeView가 있으면 해당 NodeId 반환.</summary>
         private int HitNode(Vector3 worldPos)
         {
             var hit = Physics2D.OverlapPoint(new Vector2(worldPos.x, worldPos.y), nodeLayer);
@@ -186,6 +196,7 @@ namespace CircuitOneStroke.Input
             return nv != null ? nv.NodeId : -1;
         }
 
+        /// <summary>방문 전구 반영해 노드 뷰 색/상태 갱신.</summary>
         private void UpdateNodeVisitedStates()
         {
             if (levelLoader != null)

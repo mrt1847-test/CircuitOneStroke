@@ -4,6 +4,10 @@ using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.View
 {
+    /// <summary>
+    /// 한 엣지의 선 표시. LineRenderer + 다이오드 방향 화살표 + 게이트 닫힘 시 X 마커.
+    /// 런타임 게이트 상태·리젝트 플래시 반영.
+    /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class EdgeView : MonoBehaviour
     {
@@ -35,6 +39,7 @@ namespace CircuitOneStroke.View
             _lr.useWorldSpace = true;
         }
 
+        /// <summary>LevelLoader가 스폰 시 호출. 위치·다이오드·게이트·런타임 연결 후 시각 구성.</summary>
         public void Setup(int edgeId, Vector2 posA, Vector2 posB, Data.DiodeMode diode, int gateGroupId, bool initialGateOpen, LevelRuntime runtime)
         {
             EdgeId = edgeId;
@@ -89,6 +94,7 @@ namespace CircuitOneStroke.View
             return Sprite.Create(tex, new Rect(0, 0, 16, 16), new Vector2(0.5f, 0.5f));
         }
 
+        /// <summary>이동 불가(리젝트) 시 잠깐 빨간색 플래시. TouchInputController에서 호출.</summary>
         public void SetRejectFlash(bool on)
         {
             _showReject = on;

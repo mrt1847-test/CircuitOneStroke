@@ -8,6 +8,7 @@ namespace CircuitOneStroke.UI.Theme
     /// </summary>
     public class ThemeRole : MonoBehaviour
     {
+        /// <summary>ThemeApplier가 이 역할에 맞는 스프라이트/색을 적용할 때 사용.</summary>
         public enum Role
         {
             None,

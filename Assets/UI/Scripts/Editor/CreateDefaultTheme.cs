@@ -5,10 +5,14 @@ using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.Editor
 {
+    /// <summary>
+    /// 메뉴로 기본 CircuitOneStrokeTheme 에셋 생성. UI/Theme 폴더 및 Theme/Prefabs 폴더 자동 생성.
+    /// </summary>
     public static class CreateDefaultTheme
     {
         private const string ThemePath = "Assets/UI/Theme/CircuitOneStrokeTheme.asset";
 
+        /// <summary>Theme가 없을 때만 생성. 있으면 선택만 함.</summary>
         [MenuItem("Circuit One-Stroke/UI/Create Default Theme")]
         public static void CreateTheme()
         {
@@ -27,6 +31,7 @@ namespace CircuitOneStroke.Editor
             Selection.activeObject = theme;
         }
 
+        /// <summary>Assets/UI, UI/Theme, UI/Prefabs 폴더가 없으면 생성.</summary>
         public static void EnsureFolders()
         {
             if (!AssetDatabase.IsValidFolder("Assets/UI"))

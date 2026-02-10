@@ -6,6 +6,7 @@ using CircuitOneStroke.Solver;
 
 namespace CircuitOneStroke.Generation
 {
+    /// <summary>난이도 구간. 다이오드/게이트/스위치 개수·확률에 반영.</summary>
     public enum DifficultyTier
     {
         Easy,

@@ -5,7 +5,7 @@ using CircuitOneStroke.Data;
 namespace CircuitOneStroke.Solver
 {
     /// <summary>
-    /// Result of solving a level: solvability and quality metrics for filter rules.
+    /// Solver 실행 결과: 풀기 가능 여부, 해 개수, 탐색량, 난이도 메트릭(초기 분기·막다른 깊이).
     /// </summary>
     public struct SolverResult
     {

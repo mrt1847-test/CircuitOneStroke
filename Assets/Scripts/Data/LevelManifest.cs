@@ -9,10 +9,13 @@ namespace CircuitOneStroke.Data
     [CreateAssetMenu(fileName = "LevelManifest", menuName = "Circuit One-Stroke/Level Manifest", order = 1)]
     public class LevelManifest : ScriptableObject
     {
+        /// <summary>레벨 에셋 참조 배열. 순서대로 1번째, 2번째 레벨.</summary>
         public LevelData[] levels;
 
+        /// <summary>등록된 레벨 개수.</summary>
         public int Count => levels != null ? levels.Length : 0;
 
+        /// <summary>인덱스(0-based)에 해당하는 레벨 에셋 반환. 범위 밖이면 null.</summary>
         public LevelData GetLevel(int index)
         {
             if (levels == null || index < 0 || index >= levels.Length)

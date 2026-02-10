@@ -3,6 +3,9 @@ using CircuitOneStroke.Data;
 
 namespace CircuitOneStroke.View
 {
+    /// <summary>
+    /// 한 노드의 2D 표시. SpriteRenderer + Collider2D 필요. 전구=미방문/방문 색, 스위치=고정 색.
+    /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     [RequireComponent(typeof(Collider2D))]
     public class NodeView : MonoBehaviour
@@ -25,6 +28,7 @@ namespace CircuitOneStroke.View
             _sr = GetComponent<SpriteRenderer>();
         }
 
+        /// <summary>LevelLoader가 스폰 시 호출. id·위치·타입 설정 후 시각 적용.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
             NodeId = nodeId;
@@ -34,18 +38,21 @@ namespace CircuitOneStroke.View
             ApplyVisual();
         }
 
+        /// <summary>전구 방문 여부. LevelLoader.RefreshNodeViews에서 호출.</summary>
         public void SetVisited(bool visited)
         {
             _visited = visited;
             ApplyVisual();
         }
 
+        /// <summary>스위치일 때만. 강조 색 토글.</summary>
         public void SetHighlight(bool highlight)
         {
             if (_nodeType == NodeType.Switch)
                 _sr.color = highlight ? switchHighlightColor : switchColor;
         }
 
+        /// <summary>전구=방문 시 켜진 색, 스위치=고정 색.</summary>
         private void ApplyVisual()
         {
             if (_nodeType == NodeType.Bulb)

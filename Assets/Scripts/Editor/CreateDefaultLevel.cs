@@ -5,8 +5,12 @@ using CircuitOneStroke.Data;
 
 namespace CircuitOneStroke.Editor
 {
+    /// <summary>
+    /// 메뉴로 테스트용 LevelData 에셋 생성. Level_1(기본), Level_2(다이오드), Level_3(게이트+스위치).
+    /// </summary>
     public static class CreateDefaultLevel
     {
+        /// <summary>Resources/Levels/Level_1.asset 생성. 4전구+6엣지 기본 그래프.</summary>
         [MenuItem("Circuit One-Stroke/Create Default Test Level (Level_1)")]
         public static void CreateLevel1()
         {
