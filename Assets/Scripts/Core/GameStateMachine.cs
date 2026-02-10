@@ -37,12 +37,12 @@ namespace CircuitOneStroke.Core
         public void StartStroke(int nodeId)
         {
             if (State != GameState.Idle) return;
-            var node = GetNode(nodeId);
+            var node = Runtime.GetNode(nodeId);
             if (node == null) return;
 
             Runtime.CurrentNodeId = nodeId;
-            Runtime.StrokeNodes.Clear();
-            Runtime.StrokeNodes.Add(nodeId);
+            Runtime.ClearStrokeNodes();
+            Runtime.AddStrokeNode(nodeId);
             Runtime.VisitedBulbs.Clear();
             if (node.nodeType == NodeType.Bulb)
                 Runtime.VisitedBulbs.Add(nodeId);
@@ -83,14 +83,6 @@ namespace CircuitOneStroke.Core
         public void ResetToIdle()
         {
             SetState(GameState.Idle);
-        }
-
-        private NodeData GetNode(int nodeId)
-        {
-            if (Runtime.LevelData?.nodes == null) return null;
-            foreach (var n in Runtime.LevelData.nodes)
-                if (n.id == nodeId) return n;
-            return null;
         }
     }
 }

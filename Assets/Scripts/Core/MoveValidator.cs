@@ -29,31 +29,23 @@ namespace CircuitOneStroke.Core
             if (edge.diode == DiodeMode.BtoA && fromAtoB)
                 return MoveResult.Reject;
 
-            var node = GetNode(nextNodeId);
+            var node = _runtime.GetNode(nextNodeId);
             if (node == null)
                 return MoveResult.Reject;
             // Revisit any node (Bulb or Switch) = instant Fail with clear feedback.
-            if (_runtime.StrokeNodes.Contains(nextNodeId))
+            if (_runtime.StrokeContains(nextNodeId))
                 return MoveResult.Fail;
             if (node.nodeType == NodeType.Bulb && _runtime.VisitedBulbs.Contains(nextNodeId))
                 return MoveResult.Fail;
 
             _runtime.CurrentNodeId = nextNodeId;
-            _runtime.StrokeNodes.Add(nextNodeId);
+            _runtime.AddStrokeNode(nextNodeId);
             if (node.nodeType == NodeType.Bulb)
                 _runtime.VisitedBulbs.Add(nextNodeId);
             if (node.nodeType == NodeType.Switch)
                 _runtime.ToggleGateGroup(node.switchGroupId);
 
             return MoveResult.Ok;
-        }
-
-        private NodeData GetNode(int nodeId)
-        {
-            if (_runtime.LevelData?.nodes == null) return null;
-            foreach (var n in _runtime.LevelData.nodes)
-                if (n.id == nodeId) return n;
-            return null;
         }
     }
 }

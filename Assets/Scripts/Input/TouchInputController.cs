@@ -8,7 +8,9 @@ namespace CircuitOneStroke.Input
     {
         [SerializeField] private LevelLoader levelLoader;
         [SerializeField] private Camera mainCamera;
+        [Tooltip("이 거리 안의 이웃만 스냅 후보로 고려함. 이 범위 밖이면 커밋하지 않음.")]
         [SerializeField] private float snapRadius = 1.5f;
+        [Tooltip("스냅 후보 중 이 거리 안에 들어와야 실제로 이동(커밋)함. snapRadius 이하여야 함.")]
         [SerializeField] private float commitRadius = 1f;
         [SerializeField] private LayerMask nodeLayer = -1;
 
@@ -112,7 +114,7 @@ namespace CircuitOneStroke.Input
             float bestDist = float.MaxValue;
             foreach (var (neighborId, _) in neighbors)
             {
-                var nodePos = GetNodeWorldPos(neighborId);
+                var nodePos = _stateMachine.Runtime.GetNodePosition(neighborId);
                 float d = Vector2.Distance(worldPos, nodePos);
                 if (d < bestDist)
                 {
@@ -120,6 +122,10 @@ namespace CircuitOneStroke.Input
                     bestNeighbor = neighborId;
                 }
             }
+
+            // 스냅 영역 밖의 이웃은 후보에서 제외 (먼 노드로 오인 커밋 방지)
+            if (bestNeighbor >= 0 && bestDist > snapRadius)
+                bestNeighbor = -1;
 
             if (bestNeighbor >= 0 && bestDist <= commitRadius && bestNeighbor != _lastCommittedNodeId)
             {
@@ -159,15 +165,6 @@ namespace CircuitOneStroke.Input
             if (hit == null) return -1;
             var nv = hit.GetComponent<NodeView>();
             return nv != null ? nv.NodeId : -1;
-        }
-
-        private Vector2 GetNodeWorldPos(int nodeId)
-        {
-            var nodes = _stateMachine.Runtime.LevelData?.nodes;
-            if (nodes == null) return Vector2.zero;
-            foreach (var n in nodes)
-                if (n.id == nodeId) return n.pos;
-            return Vector2.zero;
         }
 
         private void UpdateNodeVisitedStates()

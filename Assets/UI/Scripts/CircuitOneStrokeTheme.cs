@@ -1,0 +1,53 @@
+using UnityEngine;
+
+namespace CircuitOneStroke.UI.Theme
+{
+    /// <summary>
+    /// Circuit One-Stroke 전역 UI 테마 (uGUI).
+    /// Kenney Sci-Fi 스프라이트와 Skymon 아이콘 참조 + 색상/폰트.
+    /// 스프라이트가 비어 있으면 테마 색상으로 플레이스홀더 표시.
+    /// </summary>
+    [CreateAssetMenu(fileName = "CircuitOneStrokeTheme", menuName = "Circuit One-Stroke/UI Theme", order = 1)]
+    public class CircuitOneStrokeTheme : ScriptableObject
+    {
+        [Header("Colors")]
+        public Color background = UIStyleConstants.Background;
+        public Color panelBase = UIStyleConstants.PanelBase;
+        public Color panelBorder = UIStyleConstants.PanelBorder;
+        public Color primary = UIStyleConstants.Primary;
+        public Color primaryDim = UIStyleConstants.PrimaryDim;
+        public Color secondary = UIStyleConstants.Secondary;
+        public Color secondaryDim = UIStyleConstants.SecondaryDim;
+        public Color warning = UIStyleConstants.Warning;
+        public Color danger = UIStyleConstants.Danger;
+        public Color textPrimary = UIStyleConstants.TextPrimary;
+        public Color textSecondary = UIStyleConstants.TextSecondary;
+        public Color textOnAccent = UIStyleConstants.TextOnAccent;
+
+        [Header("Font (optional)")]
+        public Font font;
+
+        [Header("Kenney Sci-Fi — Panels/Buttons/Progress (optional)")]
+        public Sprite panelSprite;
+        public Sprite buttonSprite;
+        public Sprite buttonPressedSprite;
+        public Sprite sliderBackgroundSprite;
+        public Sprite sliderFillSprite;
+        public Sprite toggleBackgroundSprite;
+        public Sprite toggleCheckSprite;
+
+        [Header("Skymon Icons — optional white PNGs")]
+        public Sprite iconPlay;
+        public Sprite iconPause;
+        public Sprite iconSettings;
+        public Sprite iconRetry;
+        public Sprite iconLevel;
+        public Sprite iconBack;
+
+        public Color GetPanelColor() => panelSprite != null ? Color.white : panelBase;
+        public Color GetButtonColor() => buttonSprite != null ? Color.white : primary;
+        public Color GetButtonPressedColor() => buttonPressedSprite != null ? Color.white : primaryDim;
+        public Color GetSliderBackgroundColor() => sliderBackgroundSprite != null ? Color.white : panelBorder;
+        public Color GetSliderFillColor() => sliderFillSprite != null ? Color.white : primary;
+    }
+}

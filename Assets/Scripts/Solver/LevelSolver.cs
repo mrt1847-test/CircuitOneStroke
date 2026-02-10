@@ -22,6 +22,9 @@ namespace CircuitOneStroke.Solver
     /// </summary>
     public static class LevelSolver
     {
+        /// <summary>이 노드 수를 초과하는 레벨은 검증하지 않음 (비트마스크/상태 공간 한계). Generation과 동일 값 유지.</summary>
+        public const int MaxNodesSupported = 10;
+
         public const int MaxSolutionsDefault = 100;
         public const int MaxStatesExpandedDefault = 200000;
 
@@ -37,7 +40,8 @@ namespace CircuitOneStroke.Solver
             public int[] switchGroupId;
             public int allVisitedMask;
             public int initialGateMask;
-            public int group1Mask;
+            /// <summary>gateGroupId → bitmask of gate bits in that group (runtime ToggleGateGroup와 동일 규칙).</summary>
+            public Dictionary<int, int> groupIdToMask;
             public int maxSolutions;
             public int maxStatesExpanded;
             public int solutionsFound;
@@ -50,7 +54,7 @@ namespace CircuitOneStroke.Solver
         public static SolverResult Solve(LevelData levelData, int maxSolutions = MaxSolutionsDefault, int maxStatesExpanded = MaxStatesExpandedDefault)
         {
             var result = new SolverResult { solvable = false, solutionCount = 0, nodesExpanded = 0, earlyBranching = 0f, deadEndDepthAvg = 0f };
-            if (levelData?.nodes == null || levelData.edges == null || levelData.nodes.Length == 0 || levelData.nodes.Length > 10)
+            if (levelData?.nodes == null || levelData.edges == null || levelData.nodes.Length == 0 || levelData.nodes.Length > MaxNodesSupported)
                 return result;
 
             var ctx = BuildContext(levelData, maxSolutions, maxStatesExpanded);
@@ -67,7 +71,7 @@ namespace CircuitOneStroke.Solver
                 int visited = 1 << startIndex;
                 int gateMask = ctx.initialGateMask;
                 if (ctx.nodeIsSwitch[startIndex])
-                    gateMask = ToggleGroupMask(gateMask, ctx.group1Mask);
+                    gateMask = ToggleGroupMask(gateMask, GetGroupMask(ctx, ctx.switchGroupId[startIndex]));
                 Dfs(ctx, startNodeId, visited, gateMask, 0);
             }
 
@@ -96,6 +100,13 @@ namespace CircuitOneStroke.Solver
         private static int ToggleGroupMask(int gateMask, int groupMask)
         {
             return gateMask ^ groupMask;
+        }
+
+        /// <summary>switchGroupId에 해당하는 게이트 그룹의 비트 마스크 반환. 런타임 ToggleGateGroup(groupId)와 동일 그룹만 토글.</summary>
+        private static int GetGroupMask(SolverContext ctx, int groupId)
+        {
+            if (groupId < 0 || ctx.groupIdToMask == null) return 0;
+            return ctx.groupIdToMask.TryGetValue(groupId, out int mask) ? mask : 0;
         }
 
         private static SolverContext BuildContext(LevelData level, int maxSolutions, int maxStatesExpanded)
@@ -134,17 +145,19 @@ namespace CircuitOneStroke.Solver
             for (int i = 0; i < gateEdgeIdsInOrder.Count; i++)
                 edgeIdToGateBit[gateEdgeIdsInOrder[i]] = i;
 
-            int numGateBits = gateEdgeIdsInOrder.Count;
             int initialGateMask = 0;
+            var groupIdToMask = new Dictionary<int, int>();
             foreach (var e in level.edges)
             {
                 if (e.gateGroupId >= 0 && edgeIdToGateBit.TryGetValue(e.id, out int bit))
                 {
                     if (e.initialGateOpen)
                         initialGateMask |= 1 << bit;
+                    if (!groupIdToMask.ContainsKey(e.gateGroupId))
+                        groupIdToMask[e.gateGroupId] = 0;
+                    groupIdToMask[e.gateGroupId] |= 1 << bit;
                 }
             }
-            int group1Mask = (1 << numGateBits) - 1;
 
             var nodeIsSwitch = new bool[n];
             var switchGroupId = new int[n];
@@ -169,7 +182,7 @@ namespace CircuitOneStroke.Solver
                 switchGroupId = switchGroupId,
                 allVisitedMask = allVisitedMask,
                 initialGateMask = initialGateMask,
-                group1Mask = group1Mask,
+                groupIdToMask = groupIdToMask,
                 maxSolutions = maxSolutions,
                 maxStatesExpanded = maxStatesExpanded,
                 solutionsFound = 0,
@@ -249,7 +262,7 @@ namespace CircuitOneStroke.Solver
                 int newVisited = visitedMask | (1 << nextIndex);
                 int newGate = gateMask;
                 if (ctx.nodeIsSwitch[nextIndex] && ctx.switchGroupId[nextIndex] >= 0)
-                    newGate = ToggleGroupMask(gateMask, ctx.group1Mask);
+                    newGate = ToggleGroupMask(gateMask, GetGroupMask(ctx, ctx.switchGroupId[nextIndex]));
                 Dfs(ctx, neighborId, newVisited, newGate, depth + 1);
             }
         }

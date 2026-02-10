@@ -18,7 +18,8 @@ namespace CircuitOneStroke.Generation
     /// </summary>
     public static class LevelGenerator
     {
-        public const int MaxNodesAllowed = 10;
+        /// <summary>Solver와 동일 제한 공유. 확장 시 LevelSolver.MaxNodesSupported와 함께 변경.</summary>
+        public const int MaxNodesAllowed = LevelSolver.MaxNodesSupported;
         private const float MinNodeDistance = 0.5f;
         private const float JitterMaxFractionOfAvgEdge = 0.05f;
         private const int LayoutRetryCount = 25;

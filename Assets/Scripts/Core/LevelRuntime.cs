@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using CircuitOneStroke.Data;
 
 namespace CircuitOneStroke.Core
@@ -10,11 +11,41 @@ namespace CircuitOneStroke.Core
 
         public int CurrentNodeId { get; set; }
         public HashSet<int> VisitedBulbs { get; } = new HashSet<int>();
+        /// <summary>순서 보존용. 방문 체크는 StrokeContains 사용.</summary>
         public List<int> StrokeNodes { get; } = new List<int>();
+        private readonly HashSet<int> _strokeNodeSet = new HashSet<int>();
+
         public int TotalBulbCount { get; private set; }
+
+        private Dictionary<int, NodeData> _nodeById = new Dictionary<int, NodeData>();
 
         public Dictionary<int, bool> GateOpenByEdgeId { get; } = new Dictionary<int, bool>();
         public Dictionary<int, List<int>> GateGroupToEdgeIds { get; } = new Dictionary<int, List<int>>();
+
+        public NodeData GetNode(int nodeId)
+        {
+            return _nodeById != null && _nodeById.TryGetValue(nodeId, out var node) ? node : null;
+        }
+
+        public Vector2 GetNodePosition(int nodeId)
+        {
+            var n = GetNode(nodeId);
+            return n != null ? n.pos : Vector2.zero;
+        }
+
+        public bool StrokeContains(int nodeId) => _strokeNodeSet != null && _strokeNodeSet.Contains(nodeId);
+
+        public void ClearStrokeNodes()
+        {
+            StrokeNodes.Clear();
+            _strokeNodeSet?.Clear();
+        }
+
+        public void AddStrokeNode(int nodeId)
+        {
+            StrokeNodes.Add(nodeId);
+            _strokeNodeSet?.Add(nodeId);
+        }
 
         public void Load(LevelData levelData)
         {
@@ -24,13 +55,18 @@ namespace CircuitOneStroke.Core
             CurrentNodeId = -1;
             VisitedBulbs.Clear();
             StrokeNodes.Clear();
+            _strokeNodeSet.Clear();
 
+            _nodeById.Clear();
             TotalBulbCount = 0;
             if (levelData.nodes != null)
             {
                 foreach (var n in levelData.nodes)
+                {
+                    _nodeById[n.id] = n;
                     if (n.nodeType == NodeType.Bulb)
                         TotalBulbCount++;
+                }
             }
 
             GateOpenByEdgeId.Clear();
