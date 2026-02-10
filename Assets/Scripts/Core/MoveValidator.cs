@@ -32,10 +32,11 @@ namespace CircuitOneStroke.Core
             var node = GetNode(nextNodeId);
             if (node == null)
                 return MoveResult.Reject;
+            // Revisit any node (Bulb or Switch) = instant Fail with clear feedback.
+            if (_runtime.StrokeNodes.Contains(nextNodeId))
+                return MoveResult.Fail;
             if (node.nodeType == NodeType.Bulb && _runtime.VisitedBulbs.Contains(nextNodeId))
                 return MoveResult.Fail;
-            if (_runtime.StrokeNodes.Contains(nextNodeId))
-                return MoveResult.Reject;
 
             _runtime.CurrentNodeId = nextNodeId;
             _runtime.StrokeNodes.Add(nextNodeId);

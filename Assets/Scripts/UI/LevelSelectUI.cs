@@ -1,12 +1,17 @@
 using UnityEngine;
 using UnityEngine.UI;
 using CircuitOneStroke.Core;
+using CircuitOneStroke.Data;
 
 namespace CircuitOneStroke.UI
 {
+    /// <summary>
+    /// Minimal level select: prev/next and load. If LevelManifest is set, levels are taken from manifest; otherwise from Resources (Levels/Level_N).
+    /// </summary>
     public class LevelSelectUI : MonoBehaviour
     {
         [SerializeField] private LevelLoader levelLoader;
+        [SerializeField] private LevelManifest levelManifest;
         [SerializeField] private Button prevButton;
         [SerializeField] private Button nextButton;
         [SerializeField] private Text levelLabel;
@@ -15,10 +20,14 @@ namespace CircuitOneStroke.UI
 
         private int _currentLevelId = 1;
 
+        private int EffectiveMin => levelManifest != null ? 1 : minLevelId;
+        private int EffectiveMax => levelManifest != null ? Mathf.Max(1, levelManifest.Count) : maxLevelId;
+
         private void Start()
         {
             if (levelLoader != null && levelLoader.LevelData != null)
                 _currentLevelId = levelLoader.LevelData.levelId;
+            _currentLevelId = Mathf.Clamp(_currentLevelId, EffectiveMin, EffectiveMax);
 
             if (prevButton != null)
                 prevButton.onClick.AddListener(OnPrev);
@@ -29,19 +38,26 @@ namespace CircuitOneStroke.UI
 
         private void OnPrev()
         {
-            _currentLevelId = Mathf.Max(minLevelId, _currentLevelId - 1);
+            _currentLevelId = Mathf.Max(EffectiveMin, _currentLevelId - 1);
             LoadAndRefresh();
         }
 
         private void OnNext()
         {
-            _currentLevelId = Mathf.Min(maxLevelId, _currentLevelId + 1);
+            _currentLevelId = Mathf.Min(EffectiveMax, _currentLevelId + 1);
             LoadAndRefresh();
         }
 
         private void LoadAndRefresh()
         {
-            if (levelLoader != null)
+            if (levelLoader == null) { Refresh(); return; }
+            if (levelManifest != null)
+            {
+                LevelData data = levelManifest.GetLevel(_currentLevelId - 1);
+                if (data != null)
+                    levelLoader.LoadLevel(data);
+            }
+            else
                 levelLoader.LoadLevel(_currentLevelId);
             Refresh();
         }
@@ -51,9 +67,9 @@ namespace CircuitOneStroke.UI
             if (levelLabel != null)
                 levelLabel.text = $"Level {_currentLevelId}";
             if (prevButton != null)
-                prevButton.interactable = _currentLevelId > minLevelId;
+                prevButton.interactable = _currentLevelId > EffectiveMin;
             if (nextButton != null)
-                nextButton.interactable = _currentLevelId < maxLevelId;
+                nextButton.interactable = _currentLevelId < EffectiveMax;
         }
     }
 }
