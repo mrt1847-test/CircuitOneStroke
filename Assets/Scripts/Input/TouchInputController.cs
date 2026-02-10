@@ -13,11 +13,9 @@ namespace CircuitOneStroke.Input
         [SerializeField] private LevelLoader levelLoader;
         [SerializeField] private Camera mainCamera;
         [Tooltip("이 거리 안의 이웃만 스냅 후보로 고려함. 이 범위 밖이면 커밋하지 않음.")]
-        [SerializeField] private float snapRadius = 1.5f;
-        [Tooltip("스냅 후보 중 이 거리 안에 들어와야 실제로 이동(커밋)함. snapRadius 이하여야 함.")]
-        [SerializeField] private float commitRadius = 1f;
+        [SerializeField] private float snapRadiusBase = 1.5f;
         [Tooltip("스냅 후보 전환 시 요구되는 거리 차이(미터). 커질수록 깜빡임 감소.")]
-        [SerializeField] private float snapHysteresis = 0.2f;
+        [SerializeField] private float snapHysteresisBase = 0.2f;
         [SerializeField] private LayerMask nodeLayer = -1;
 
         private GameStateMachine _stateMachine;
@@ -161,20 +159,25 @@ namespace CircuitOneStroke.Input
                 }
             }
 
-            if (bestNeighbor >= 0 && bestDist > snapRadius)
+            float snapA = Core.GameSettings.Instance?.Data?.snapAssist ?? 0.7f;
+            float snapR = snapRadiusBase * (0.8f + 0.4f * snapA);
+            float commitR = snapR * 0.65f;
+            float hyst = snapHysteresisBase * (0.5f + snapA);
+
+            if (bestNeighbor >= 0 && bestDist > snapR)
                 bestNeighbor = -1;
 
             // 히스테리시스: 기존 스냅 후보가 유효하면 새 후보가 확실히 더 가까울 때만 전환 (깜빡임 방지)
             if (_snapCandidateId >= 0 && bestNeighbor >= 0 && _snapCandidateId != bestNeighbor)
             {
                 float distToCurrent = Vector2.Distance(worldPos, _stateMachine.Runtime.GetNodePosition(_snapCandidateId));
-                if (distToCurrent <= snapRadius && bestDist >= distToCurrent - snapHysteresis)
+                if (distToCurrent <= snapR && bestDist >= distToCurrent - hyst)
                     bestNeighbor = _snapCandidateId;
             }
             if (bestNeighbor >= 0)
                 _snapCandidateId = bestNeighbor;
 
-            if (bestNeighbor >= 0 && bestDist <= commitRadius && bestNeighbor != _lastCommittedNodeId)
+            if (bestNeighbor >= 0 && bestDist <= commitR && bestNeighbor != _lastCommittedNodeId)
             {
                 int fromNode = _stateMachine.Runtime.CurrentNodeId;
                 var result = _stateMachine.TryMoveTo(bestNeighbor);
@@ -186,7 +189,8 @@ namespace CircuitOneStroke.Input
                 }
                 else if (result == MoveResult.Reject)
                 {
-                    if (levelLoader != null && _stateMachine.Runtime.Graph.TryGetEdge(fromNode, bestNeighbor, out var edge))
+                    bool showRejectFeedback = Core.GameSettings.Instance?.Data?.rejectFeedbackEnabled ?? true;
+                    if (showRejectFeedback && levelLoader != null && _stateMachine.Runtime.Graph.TryGetEdge(fromNode, bestNeighbor, out var edge))
                         levelLoader.GetEdgeView(edge.id)?.SetRejectFlash(true);
                     Core.GameFeedback.Instance?.PlayReject();
                     Core.GameFeedback.RequestToast("Invalid move");

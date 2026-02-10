@@ -1,5 +1,6 @@
 using UnityEngine;
 using CircuitOneStroke.Data;
+using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.View
 {
@@ -31,6 +32,32 @@ namespace CircuitOneStroke.View
             _sr = GetComponent<SpriteRenderer>();
         }
 
+        private void OnEnable()
+        {
+            GameSettings.Instance.OnChanged += OnSettingsChanged;
+            ApplyNodeSizeScale();
+        }
+
+        private void OnDisable()
+        {
+            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+        }
+
+        private void OnSettingsChanged(GameSettingsData _) => ApplyNodeSizeScale();
+
+        private void ApplyNodeSizeScale()
+        {
+            float scale = GameSettings.Instance?.Data != null
+                ? GameSettings.Instance.NodeSizeValue switch
+                {
+                    NodeSize.Small => 0.85f,
+                    NodeSize.Large => 1.2f,
+                    _ => 1f
+                }
+                : 1f;
+            transform.localScale = new Vector3(scale, scale, 1f);
+        }
+
         /// <summary>LevelLoader가 스폰 시 호출. id·위치·타입 설정 후 시각 적용. 터치용 콜라이더 확대 적용.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
@@ -38,6 +65,7 @@ namespace CircuitOneStroke.View
             transform.position = new Vector3(pos.x, pos.y, 0f);
             _nodeType = nodeType;
             _visited = false;
+            ApplyNodeSizeScale();
             ApplyVisual();
             if (colliderRadiusScale > 0 && _sr != null && _sr.sprite != null && TryGetComponent<CircleCollider2D>(out var col))
             {

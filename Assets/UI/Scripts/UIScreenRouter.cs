@@ -59,6 +59,8 @@ namespace CircuitOneStroke.UI
         private bool _resultDialogVisible;
         private bool _outOfHeartsVisible;
         private OutOfHeartsContext _outOfHeartsContext;
+        private bool _pendingExitConfirm;
+        private float _pendingExitTime;
         private const int DefaultMaxLevels = 20;
 
         [Header("Overlay References")]
@@ -330,6 +332,19 @@ namespace CircuitOneStroke.UI
             }
             if (CurrentScreen == Screen.GameHUD)
             {
+                if (GameSettings.Instance.ConfirmExitFromGame)
+                {
+                    if (_pendingExitConfirm && Time.realtimeSinceStartup - _pendingExitTime < 2f)
+                    {
+                        _pendingExitConfirm = false;
+                        ShowHome();
+                        return;
+                    }
+                    _pendingExitConfirm = true;
+                    _pendingExitTime = Time.realtimeSinceStartup;
+                    GameFeedback.RequestToast("Press back again to leave level");
+                    return;
+                }
                 ShowHome();
                 return;
             }

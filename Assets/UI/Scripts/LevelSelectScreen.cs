@@ -14,6 +14,7 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Transform gridContainer;
         [SerializeField] private GameObject levelCellPrefab;
         [SerializeField] private Button backButton;
+        [SerializeField] private Button settingsButton;
         [SerializeField] private GridLayoutGroup gridLayout;
         [SerializeField] private int columns = 5;
 
@@ -39,6 +40,8 @@ namespace CircuitOneStroke.UI
         {
             if (backButton != null)
                 backButton.onClick.AddListener(OnBack);
+            if (settingsButton != null)
+                settingsButton.onClick.AddListener(() => _router?.ShowSettings());
 
             BuildGrid();
         }

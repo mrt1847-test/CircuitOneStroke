@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.UI.Theme
 {
@@ -22,6 +23,17 @@ namespace CircuitOneStroke.UI.Theme
         {
             if (applyOnEnable)
                 Apply(theme);
+            GameSettings.Instance.OnChanged += OnSettingsChanged;
+        }
+
+        private void OnDisable()
+        {
+            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+        }
+
+        private void OnSettingsChanged(GameSettingsData _)
+        {
+            if (applyOnEnable) Apply(theme);
         }
 
         public void Apply(CircuitOneStrokeTheme t)
@@ -75,7 +87,7 @@ namespace CircuitOneStroke.UI.Theme
             {
                 case ThemeRole.Role.Background:
                     img.sprite = t.panelSprite ?? img.sprite;
-                    img.color = t.panelSprite != null ? Color.white : t.background;
+                    img.color = t.panelSprite != null ? Color.white : (UseHighContrast() ? t.highContrastBackground : t.background);
                     break;
                 case ThemeRole.Role.Panel:
                     img.sprite = t.panelSprite ?? img.sprite;
@@ -118,10 +130,19 @@ namespace CircuitOneStroke.UI.Theme
         private static void ApplyToText(Text text, CircuitOneStrokeTheme t)
         {
             if (text == null || t == null) return;
-            text.color = t.textPrimary;
+            text.color = UseHighContrast() ? t.highContrastTextPrimary : t.textPrimary;
             if (t.font != null)
                 text.font = t.font;
+            var scaler = text.GetComponent<AccessibilityTextScaler>();
+            if (scaler == null)
+            {
+                scaler = text.gameObject.AddComponent<AccessibilityTextScaler>();
+                // designFontSize will be captured from current fontSize in Awake
+            }
+            scaler.ApplyScale();
         }
+
+        private static bool UseHighContrast() => GameSettings.Instance?.Data?.highContrastUI ?? false;
 
         private static void ApplyToButton(Button btn, CircuitOneStrokeTheme t)
         {

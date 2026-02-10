@@ -31,36 +31,50 @@ namespace CircuitOneStroke.Core
             if (Instance == this) Instance = null;
         }
 
-        /// <summary>이동 성공 시. GameSettings.SoundEnabled 반영.</summary>
+        private void PlaySfx(AudioClip clip)
+        {
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.PlaySfx(clip);
+            else if (GameSettings.SoundEnabled && audioSource != null && clip != null)
+                audioSource.PlayOneShot(clip);
+        }
+
+        /// <summary>이동 성공 시. GameSettings.SfxEnabled 반영.</summary>
         public void PlayMoveOk()
         {
-            if (GameSettings.SoundEnabled && audioSource != null && moveOkClip != null)
-                audioSource.PlayOneShot(moveOkClip);
+            if (moveOkClip != null) PlaySfx(moveOkClip);
         }
 
         /// <summary>이동 불가(리젝트) 시. 설정에 따라 진동.</summary>
         public void PlayReject()
         {
-            if (GameSettings.SoundEnabled && audioSource != null && rejectClip != null)
-                audioSource.PlayOneShot(rejectClip);
-            if (GameSettings.VibrateEnabled)
+            if (rejectClip != null) PlaySfx(rejectClip);
+            if (HapticsManager.Instance != null)
+                HapticsManager.Instance.PulseReject();
+            else if (GameSettings.VibrateEnabled)
+#if UNITY_ANDROID && !UNITY_EDITOR
                 Handheld.Vibrate();
+#endif
         }
 
         /// <summary>재방문 등 규칙 위반(즉시 실패) 시.</summary>
         public void PlayFail()
         {
-            if (GameSettings.SoundEnabled && audioSource != null && failClip != null)
-                audioSource.PlayOneShot(failClip);
-            if (GameSettings.VibrateEnabled)
+            if (failClip != null) PlaySfx(failClip);
+            if (HapticsManager.Instance != null)
+                HapticsManager.Instance.PulseFail();
+            else if (GameSettings.VibrateEnabled)
+#if UNITY_ANDROID && !UNITY_EDITOR
                 Handheld.Vibrate();
+#endif
         }
 
         /// <summary>클리어 시.</summary>
         public void PlaySuccess()
         {
-            if (GameSettings.SoundEnabled && audioSource != null && successClip != null)
-                audioSource.PlayOneShot(successClip);
+            if (successClip != null) PlaySfx(successClip);
+            if (HapticsManager.Instance != null)
+                HapticsManager.Instance.PulseWin();
         }
     }
 }

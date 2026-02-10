@@ -44,6 +44,11 @@ namespace CircuitOneStroke.UI.Theme
         public Sprite iconLevel;
         public Sprite iconBack;
 
+        [Header("High Contrast (Accessibility)")]
+        public Color highContrastBackground = new Color(0.02f, 0.03f, 0.06f, 1f);
+        public Color highContrastTextPrimary = Color.white;
+        public Color highContrastPanelBorder = new Color(0.4f, 0.5f, 0.7f, 1f);
+
         /// <summary>패널용 색. 스프라이트 있으면 white, 없으면 panelBase.</summary>
         public Color GetPanelColor() => panelSprite != null ? Color.white : panelBase;
         /// <summary>버튼용 색. 스프라이트 있으면 white, 없으면 primary.</summary>

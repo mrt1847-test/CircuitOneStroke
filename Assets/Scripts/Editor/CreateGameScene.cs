@@ -60,6 +60,17 @@ namespace CircuitOneStroke.Editor
             feedbackSo.FindProperty("audioSource").objectReferenceValue = audioSource;
             feedbackSo.ApplyModifiedPropertiesWithoutUndo();
 
+            var audioMgrGo = new GameObject("AudioManager");
+            audioMgrGo.transform.SetParent(gameRoot.transform, false);
+            var audioMgr = audioMgrGo.AddComponent<CircuitOneStroke.Core.AudioManager>();
+            var amSo = new SerializedObject(audioMgr);
+            amSo.FindProperty("sfxSource").objectReferenceValue = audioSource;
+            amSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var hapticsGo = new GameObject("HapticsManager");
+            hapticsGo.transform.SetParent(gameRoot.transform, false);
+            hapticsGo.AddComponent<CircuitOneStroke.Core.HapticsManager>();
+
             var input = gameRoot.AddComponent<CircuitOneStroke.Input.TouchInputController>();
             var so = new SerializedObject(loader);
             so.FindProperty("nodesRoot").objectReferenceValue = nodesRoot.transform;

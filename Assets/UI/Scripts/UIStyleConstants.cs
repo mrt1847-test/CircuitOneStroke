@@ -1,4 +1,5 @@
 using UnityEngine;
+using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.UI.Theme
 {
@@ -29,5 +30,8 @@ namespace CircuitOneStroke.UI.Theme
         public static readonly Color TextPrimary = new Color(0.95f, 0.97f, 1f, 1f);
         public static readonly Color TextSecondary = new Color(0.65f, 0.72f, 0.85f, 1f);
         public static readonly Color TextOnAccent = new Color(0.06f, 0.08f, 0.12f, 1f);
+
+        /// <summary>접근성 Large Text 시 적용할 폰트 스케일. 1.0 = 기본, 1.15 = Large.</summary>
+        public static float FontScale => GameSettings.Instance?.Data?.largeText == true ? 1.15f : 1f;
     }
 }

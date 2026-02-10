@@ -39,6 +39,18 @@ namespace CircuitOneStroke.View
             _lr.useWorldSpace = true;
         }
 
+        private void OnEnable()
+        {
+            GameSettings.Instance.OnChanged += OnSettingsChanged;
+        }
+
+        private void OnDisable()
+        {
+            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+        }
+
+        private void OnSettingsChanged(GameSettingsData _) => UpdateVisual();
+
         /// <summary>LevelLoader가 스폰 시 호출. 위치·다이오드·게이트·런타임 연결 후 시각 구성.</summary>
         public void Setup(int edgeId, Vector2 posA, Vector2 posB, Data.DiodeMode diode, int gateGroupId, bool initialGateOpen, LevelRuntime runtime)
         {
@@ -59,7 +71,7 @@ namespace CircuitOneStroke.View
             if (_gateClosedMarker != null) Destroy(_gateClosedMarker);
             _gateClosedMarker = null;
             if (diode != Data.DiodeMode.None)
-                CreateDiodeArrow(diode);
+                CreateDiodeArrow(diode);  // arrow shape provides non-color cue for colorblind
             if (gateGroupId >= 0)
                 CreateGateMarker();
 
@@ -156,14 +168,18 @@ namespace CircuitOneStroke.View
 
         private void UpdateVisual()
         {
+            bool colorBlind = GameSettings.Instance?.Data?.colorBlindMode ?? false;
+            Color rejectCol = colorBlind ? new Color(0.9f, 0.5f, 0.1f, 1f) : diodeRejectColor;  // orange vs red
+            Color gateCol = colorBlind ? new Color(0.3f, 0.4f, 0.7f, 1f) : gateClosedColor;    // blue vs red
+
             if (_showReject)
             {
-                _lr.startColor = _lr.endColor = diodeRejectColor;
+                _lr.startColor = _lr.endColor = rejectCol;
                 if (_gateClosedMarker != null) _gateClosedMarker.SetActive(false);
                 return;
             }
             bool gateClosed = _gateGroupId >= 0 && _runtime != null && !_runtime.IsGateOpen(EdgeId);
-            _lr.startColor = _lr.endColor = gateClosed ? gateClosedColor : wireColor;
+            _lr.startColor = _lr.endColor = gateClosed ? gateCol : wireColor;
             if (_gateClosedMarker != null)
             {
                 _gateClosedMarker.SetActive(gateClosed);
@@ -171,6 +187,8 @@ namespace CircuitOneStroke.View
                 {
                     var mid = Vector2.Lerp(_posA, _posB, 0.5f);
                     _gateClosedMarker.transform.position = new Vector3(mid.x, mid.y, -0.08f);
+                    if (_gateClosedMarker.TryGetComponent<SpriteRenderer>(out var sr))
+                        sr.color = gateCol;
                 }
             }
         }
