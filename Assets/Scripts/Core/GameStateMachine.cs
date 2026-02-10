@@ -60,11 +60,14 @@ namespace CircuitOneStroke.Core
             SetState(GameState.Drawing);
         }
 
-        /// <summary>Drawing일 때만. nextNodeId로 이동 시도. 결과에 따라 Reject/Ok/Fail.</summary>
+        /// <summary>Drawing일 때만. nextNodeId로 이동 시도. Reject 시 FailMode가 ImmediateFail이면 이쪽에서 EndStroke 호출.</summary>
         public MoveResult TryMoveTo(int nextNodeId)
         {
             if (State != GameState.Drawing) return MoveResult.Reject;
-            return Validator.TryMoveTo(nextNodeId);
+            var result = Validator.TryMoveTo(nextNodeId);
+            if (result == MoveResult.Reject && GameSettings.FailMode == FailFeedbackMode.ImmediateFail)
+                EndStroke();
+            return result;
         }
 
         /// <summary>Drawing일 때만. 스트로크 종료. 전구 모두 방문 시 Success+기록, 아니면 Fail.</summary>

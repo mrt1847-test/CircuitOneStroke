@@ -20,6 +20,12 @@ namespace CircuitOneStroke.Editor
         private string _outputFolder = "Assets/Levels/Generated";
         private bool _includeSwitchOverride;
         private bool _useIncludeSwitchOverride;
+        private bool _useGridRangeGenerator;
+        private int _minNodes = 16;
+        private int _maxNodes = 25;
+        private int _maxStatesExpandedBudget = 200000;
+        private int _maxMillisBudget = 100;
+        private int _maxSolutionsBudget = 50;
         private bool _advancedFoldout;
         private int _solutionCountMin = 1;
         private int _solutionCountMaxEasy = 80;
@@ -53,7 +59,20 @@ namespace CircuitOneStroke.Editor
             _tier = (DifficultyTier)EditorGUILayout.EnumPopup("Tier", _tier);
             _targetCount = Mathf.Max(1, EditorGUILayout.IntField("Target Count", _targetCount));
             _seedStart = EditorGUILayout.IntField("Seed Start", _seedStart);
-            _outputFolder = EditorGUILayout.TextField("Output Folder", _outputFolder);
+            _useGridRangeGenerator = EditorGUILayout.Toggle("Use Grid Range (16–25 nodes)", _useGridRangeGenerator);
+            if (_useGridRangeGenerator)
+            {
+                EditorGUI.indentLevel++;
+                _minNodes = Mathf.Clamp(EditorGUILayout.IntField("Min Nodes", _minNodes), 16, 25);
+                _maxNodes = Mathf.Clamp(EditorGUILayout.IntField("Max Nodes", _maxNodes), 16, 25);
+                if (_minNodes > _maxNodes) _maxNodes = _minNodes;
+                _maxStatesExpandedBudget = EditorGUILayout.IntField("Max States Expanded", _maxStatesExpandedBudget);
+                _maxMillisBudget = EditorGUILayout.IntField("Max Millis (per level)", _maxMillisBudget);
+                _maxSolutionsBudget = EditorGUILayout.IntField("Max Solutions (budget)", _maxSolutionsBudget);
+                EditorGUI.indentLevel--;
+            }
+            else
+                _outputFolder = EditorGUILayout.TextField("Output Folder", _outputFolder);
             _useIncludeSwitchOverride = EditorGUILayout.Toggle("Override Include Switch", _useIncludeSwitchOverride);
             if (_useIncludeSwitchOverride)
                 _includeSwitchOverride = EditorGUILayout.Toggle("  Include Switch", _includeSwitchOverride);
@@ -104,6 +123,12 @@ namespace CircuitOneStroke.Editor
 
         private void DoGenerateAndSave()
         {
+            if (_useGridRangeGenerator)
+            {
+                DoGenerateAndSaveGridRange();
+                return;
+            }
+
             if (string.IsNullOrEmpty(_outputFolder))
             {
                 Debug.LogError("Output folder is empty.");
@@ -116,7 +141,7 @@ namespace CircuitOneStroke.Editor
             var savedLevels = new List<LevelData>();
             int seed = _seedStart;
             int levelId = 1;
-            bool useCustomFilter = _advancedFoldout; // Use custom only if user opened advanced; else use default
+            bool useCustomFilter = _advancedFoldout;
 
             while (savedLevels.Count < _targetCount)
             {
@@ -153,7 +178,62 @@ namespace CircuitOneStroke.Editor
                 AssetDatabase.SaveAssets();
             }
             AssetDatabase.Refresh();
-            Debug.Log($"Level Bake complete: {savedLevels.Count} levels saved to {_outputFolder}. Manifest updated.");
+            Debug.Log($"Level Bake complete: {savedLevels.Count} levels saved to {_outputFolder}. Manifest at {ManifestResourcesPath} (Resources).");
+        }
+
+        private void DoGenerateAndSaveGridRange()
+        {
+            EnsureFolderExists("Assets/Resources");
+            EnsureFolderExists("Assets/Resources/Levels");
+            string tierFolder = $"Assets/Resources/Levels/Generated/{_tier}";
+            EnsureFolderExists("Assets/Resources/Levels/Generated");
+            EnsureFolderExists(tierFolder);
+
+            var savedLevels = new List<LevelData>();
+            int seed = _seedStart;
+            int levelId = 1;
+
+            while (savedLevels.Count < _targetCount)
+            {
+                var level = GridRangeGenerator.Generate(_minNodes, _maxNodes, _tier, seed);
+                var result = LevelSolver.Solve(level, _maxSolutionsBudget, _maxStatesExpandedBudget, _maxMillisBudget);
+
+                bool pass = result.solvableWithinBudget && result.solutionsFoundWithinBudget >= 1;
+                if (result.status == SolverStatus.BudgetExceeded && result.solutionsFoundWithinBudget == 0)
+                    pass = false;
+
+                if (pass)
+                {
+                    level.levelId = levelId;
+                    string assetPath = $"{tierFolder}/Level_{levelId}.asset";
+                    AssetDatabase.CreateAsset(level, assetPath);
+
+                    int n = level.nodes != null ? level.nodes.Length : 0;
+                    var (rows, cols) = GridRangeGenerator.GetGridSize(n);
+                    string metaJson = $"{{\"seed\":{seed},\"tier\":\"{_tier}\",\"nodeCount\":{n},\"gridRows\":{rows},\"gridCols\":{cols},\"solutionsFoundWithinBudget\":{result.solutionsFoundWithinBudget},\"nodesExpanded\":{result.nodesExpanded},\"earlyBranchingApprox\":{result.earlyBranchingApprox:F2},\"deadEndDepthAvgApprox\":{result.deadEndDepthAvgApprox:F2},\"status\":\"{result.status}\"}}";
+                    string metaPath = $"{tierFolder}/Level_{levelId}_meta.json";
+                    File.WriteAllText(metaPath, metaJson);
+
+                    savedLevels.Add(level);
+                    levelId++;
+                    Debug.Log($"Saved Grid level {savedLevels.Count}: N={n}, seed={seed}, solutionsFound={result.solutionsFoundWithinBudget}, expanded={result.nodesExpanded}");
+                }
+                else
+                {
+                    Object.DestroyImmediate(level);
+                }
+                seed++;
+            }
+
+            LevelManifest manifest = EnsureManifestForTier(_tier);
+            if (manifest != null)
+            {
+                manifest.levels = savedLevels.ToArray();
+                EditorUtility.SetDirty(manifest);
+                AssetDatabase.SaveAssets();
+            }
+            AssetDatabase.Refresh();
+            Debug.Log($"Grid Range Bake complete: {savedLevels.Count} levels saved to {tierFolder}. Manifest at {GetManifestPathForTier(_tier)} (Resources).");
         }
 
         private void EnsureFolderExists(string folder)
@@ -185,15 +265,38 @@ namespace CircuitOneStroke.Editor
             }
         }
 
+        private const string ManifestResourcesPath = "Assets/Resources/Levels/GeneratedLevelManifest.asset";
+
+        private static string GetManifestPathForTier(DifficultyTier tier)
+        {
+            return $"Assets/Resources/Levels/GeneratedLevelManifest_{tier}.asset";
+        }
+
         private LevelManifest EnsureManifest()
         {
-            string manifestPath = $"{_outputFolder}/GeneratedLevelManifest.asset";
-            var manifest = AssetDatabase.LoadAssetAtPath<LevelManifest>(manifestPath);
+            EnsureFolderExists("Assets/Resources");
+            EnsureFolderExists("Assets/Resources/Levels");
+            var manifest = AssetDatabase.LoadAssetAtPath<LevelManifest>(ManifestResourcesPath);
             if (manifest == null)
             {
                 manifest = ScriptableObject.CreateInstance<LevelManifest>();
                 manifest.levels = new LevelData[0];
-                AssetDatabase.CreateAsset(manifest, manifestPath);
+                AssetDatabase.CreateAsset(manifest, ManifestResourcesPath);
+            }
+            return manifest;
+        }
+
+        private LevelManifest EnsureManifestForTier(DifficultyTier tier)
+        {
+            EnsureFolderExists("Assets/Resources");
+            EnsureFolderExists("Assets/Resources/Levels");
+            string path = GetManifestPathForTier(tier);
+            var manifest = AssetDatabase.LoadAssetAtPath<LevelManifest>(path);
+            if (manifest == null)
+            {
+                manifest = ScriptableObject.CreateInstance<LevelManifest>();
+                manifest.levels = new LevelData[0];
+                AssetDatabase.CreateAsset(manifest, path);
             }
             return manifest;
         }

@@ -4,8 +4,16 @@ using CircuitOneStroke.Data;
 
 namespace CircuitOneStroke.Solver
 {
+    /// <summary>N>12 예산 평가 시 완료 여부.</summary>
+    public enum SolverStatus
+    {
+        Completed,
+        BudgetExceeded
+    }
+
     /// <summary>
     /// Solver 실행 결과: 풀기 가능 여부, 해 개수, 탐색량, 난이도 메트릭(초기 분기·막다른 깊이).
+    /// N>12일 때는 solutionsFoundWithinBudget·status 사용.
     /// </summary>
     public struct SolverResult
     {
@@ -14,6 +22,15 @@ namespace CircuitOneStroke.Solver
         public int nodesExpanded;
         public float earlyBranching;
         public float deadEndDepthAvg;
+        /// <summary>예산 내에서 풀기 가능(최소 1해 발견). N>12에서 사용.</summary>
+        public bool solvableWithinBudget;
+        /// <summary>예산 내에서 찾은 해 개수. N>12에서는 정확한 총 개수 아님.</summary>
+        public int solutionsFoundWithinBudget;
+        public SolverStatus status;
+        /// <summary>N>12 샘플링 기반 근사. 그 외는 earlyBranching와 동일.</summary>
+        public float earlyBranchingApprox;
+        /// <summary>N>12 샘플링 기반 근사. 그 외는 deadEndDepthAvg와 동일.</summary>
+        public float deadEndDepthAvgApprox;
     }
 
     /// <summary>
@@ -22,11 +39,17 @@ namespace CircuitOneStroke.Solver
     /// </summary>
     public static class LevelSolver
     {
-        /// <summary>이 노드 수를 초과하는 레벨은 검증하지 않음 (비트마스크/상태 공간 한계). Generation과 동일 값 유지.</summary>
-        public const int MaxNodesSupported = 10;
+        /// <summary>이 노드 수를 초과하는 레벨은 검증하지 않음. 25까지 지원 (N>12는 예산 평가).</summary>
+        public const int MaxNodesSupported = 25;
+        /// <summary>N>12일 때 예산 모드로 전환하는 노드 수 한계.</summary>
+        public const int BudgetedEvaluationThreshold = 12;
 
         public const int MaxSolutionsDefault = 100;
         public const int MaxStatesExpandedDefault = 200000;
+        /// <summary>N>12 예산 평가 시 해 개수 상한 (정확한 총 개수는 세지 않음).</summary>
+        public const int MaxSolutionsBudgetedDefault = 50;
+        /// <summary>N>12 예산 평가 시 시간 상한(ms). 0이면 무제한.</summary>
+        public const int MaxMillisBudgetedDefault = 100;
 
         private sealed class SolverContext
         {
@@ -49,24 +72,43 @@ namespace CircuitOneStroke.Solver
             public bool aborted;
             public List<float> branchingAtDepth;
             public List<int> deadEndDepths;
+            public long startTicks;
+            public int maxMillis;
         }
 
-        public static SolverResult Solve(LevelData levelData, int maxSolutions = MaxSolutionsDefault, int maxStatesExpanded = MaxStatesExpandedDefault)
+        /// <summary>풀기 가능 여부·메트릭 반환. N>12이면 maxMillis·maxSolutions로 예산 평가.</summary>
+        public static SolverResult Solve(LevelData levelData, int maxSolutions = MaxSolutionsDefault, int maxStatesExpanded = MaxStatesExpandedDefault, int maxMillis = 0)
         {
-            var result = new SolverResult { solvable = false, solutionCount = 0, nodesExpanded = 0, earlyBranching = 0f, deadEndDepthAvg = 0f };
+            var result = new SolverResult
+            {
+                solvable = false, solutionCount = 0, nodesExpanded = 0, earlyBranching = 0f, deadEndDepthAvg = 0f,
+                solvableWithinBudget = false, solutionsFoundWithinBudget = 0, status = SolverStatus.Completed,
+                earlyBranchingApprox = 0f, deadEndDepthAvgApprox = 0f
+            };
             if (levelData?.nodes == null || levelData.edges == null || levelData.nodes.Length == 0 || levelData.nodes.Length > MaxNodesSupported)
                 return result;
+
+            int n = levelData.nodes.Length;
+            bool budgeted = n > BudgetedEvaluationThreshold;
+            if (budgeted && maxMillis <= 0)
+                maxMillis = MaxMillisBudgetedDefault;
 
             var ctx = BuildContext(levelData, maxSolutions, maxStatesExpanded);
             if (ctx == null)
                 return result;
+            ctx.maxMillis = maxMillis;
+            ctx.startTicks = Environment.TickCount64;
 
             ctx.branchingAtDepth = new List<float>();
             ctx.deadEndDepths = new List<int>();
 
-            // Try starting from every node (each node must be visited in some solution)
             for (int startIndex = 0; startIndex < ctx.n && !ctx.aborted; startIndex++)
             {
+                if (ctx.maxMillis > 0 && (Environment.TickCount64 - ctx.startTicks) >= ctx.maxMillis)
+                {
+                    ctx.aborted = true;
+                    break;
+                }
                 int startNodeId = ctx.indexToNodeId[startIndex];
                 int visited = 1 << startIndex;
                 int gateMask = ctx.initialGateMask;
@@ -77,21 +119,26 @@ namespace CircuitOneStroke.Solver
 
             result.solvable = ctx.solutionsFound > 0 && !ctx.aborted;
             result.solutionCount = ctx.solutionsFound;
+            result.solutionsFoundWithinBudget = ctx.solutionsFound;
+            result.solvableWithinBudget = ctx.solutionsFound > 0;
             result.nodesExpanded = ctx.statesExpanded;
+            result.status = ctx.aborted ? SolverStatus.BudgetExceeded : SolverStatus.Completed;
+            if (budgeted && ctx.statesExpanded >= expansionCap && ctx.solutionsFound == 0)
+                result.solvable = false;
 
             if (ctx.branchingAtDepth.Count > 0)
             {
                 float sum = 0;
                 foreach (var b in ctx.branchingAtDepth)
                     sum += b;
-                result.earlyBranching = sum / ctx.branchingAtDepth.Count;
+                result.earlyBranching = result.earlyBranchingApprox = sum / ctx.branchingAtDepth.Count;
             }
             if (ctx.deadEndDepths.Count > 0)
             {
                 float sum = 0;
                 foreach (var d in ctx.deadEndDepths)
                     sum += d;
-                result.deadEndDepthAvg = sum / ctx.deadEndDepths.Count;
+                result.deadEndDepthAvg = result.deadEndDepthAvgApprox = sum / ctx.deadEndDepths.Count;
             }
 
             return result;
@@ -195,6 +242,11 @@ namespace CircuitOneStroke.Solver
         {
             ctx.statesExpanded++;
             if (ctx.statesExpanded > ctx.maxStatesExpanded || ctx.solutionsFound >= ctx.maxSolutions)
+            {
+                ctx.aborted = true;
+                return;
+            }
+            if (ctx.maxMillis > 0 && (Environment.TickCount64 - ctx.startTicks) >= ctx.maxMillis)
             {
                 ctx.aborted = true;
                 return;

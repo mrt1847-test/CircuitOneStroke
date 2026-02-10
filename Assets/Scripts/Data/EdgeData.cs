@@ -23,10 +23,10 @@ namespace CircuitOneStroke.Data
         public int b;
         /// <summary>양방향(None) 또는 한 방향만 통과 가능.</summary>
         public DiodeMode diode = DiodeMode.None;
-        /// <summary>-1 = 일반 선, >= 0 = 이 id의 게이트 그룹에 속함(열림/닫힘 공유).</summary>
+        /// <summary>-1 = 일반 선, >= 0 = 이 id의 게이트 그룹에 속함. 같은 그룹은 스위치로 일괄 토글되지만, 상태는 엣지별로 보관.</summary>
         [Tooltip("-1 = normal wire, >= 0 = gate group id")]
         public int gateGroupId = -1;
-        /// <summary>게이트일 때 초기 상태. false면 닫혀 있어 통과 불가.</summary>
+        /// <summary>게이트일 때 초기 상태(엣지별). false면 닫혀 있어 통과 불가.</summary>
         [Tooltip("Used when gateGroupId >= 0")]
         public bool initialGateOpen = true;
     }

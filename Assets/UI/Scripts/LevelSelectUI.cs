@@ -6,7 +6,7 @@ using CircuitOneStroke.Data;
 namespace CircuitOneStroke.UI
 {
     /// <summary>
-    /// Minimal level select: prev/next and load. If LevelManifest is set, levels are taken from manifest; otherwise from Resources (Levels/Level_N).
+    /// 레벨 선택: prev/next 및 로드. LevelManifest가 할당되면 manifest에서 레벨 사용(생성 레벨은 Resources/Levels/GeneratedLevelManifest 할당 권장). 없으면 Resources Levels/Level_N 로드.
     /// </summary>
     public class LevelSelectUI : MonoBehaviour
     {

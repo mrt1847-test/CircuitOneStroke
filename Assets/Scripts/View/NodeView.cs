@@ -18,6 +18,9 @@ namespace CircuitOneStroke.View
         [Header("Switch")]
         [SerializeField] private Color switchColor = new Color(0.6f, 0.4f, 0.2f);
         [SerializeField] private Color switchHighlightColor = new Color(0.9f, 0.7f, 0.3f);
+        [Header("Touch (mobile)")]
+        [Tooltip("Collider radius = sprite half-size * this. >1 for easier touch on small nodes (e.g. 25-node grid).")]
+        [SerializeField] private float colliderRadiusScale = 1.35f;
 
         private SpriteRenderer _sr;
         private NodeType _nodeType;
@@ -28,7 +31,7 @@ namespace CircuitOneStroke.View
             _sr = GetComponent<SpriteRenderer>();
         }
 
-        /// <summary>LevelLoader가 스폰 시 호출. id·위치·타입 설정 후 시각 적용.</summary>
+        /// <summary>LevelLoader가 스폰 시 호출. id·위치·타입 설정 후 시각 적용. 터치용 콜라이더 확대 적용.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
             NodeId = nodeId;
@@ -36,6 +39,11 @@ namespace CircuitOneStroke.View
             _nodeType = nodeType;
             _visited = false;
             ApplyVisual();
+            if (colliderRadiusScale > 0 && _sr != null && _sr.sprite != null && TryGetComponent<CircleCollider2D>(out var col))
+            {
+                float size = Mathf.Max(_sr.sprite.bounds.size.x, _sr.sprite.bounds.size.y) * 0.5f;
+                col.radius = Mathf.Max(0.2f, size * colliderRadiusScale);
+            }
         }
 
         /// <summary>전구 방문 여부. LevelLoader.RefreshNodeViews에서 호출.</summary>

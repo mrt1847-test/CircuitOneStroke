@@ -46,7 +46,6 @@ CircuitOneStroke/
 | **Solver** | 레벨 풀기 가능 여부·메트릭 | `LevelSolver` (DFS, gate 그룹별 토글, `MaxNodesSupported`) |
 | **Generation** | 시드 기반 레벨 자동 생성 | `LevelGenerator`, `LevelTemplates`, `LayoutTemplates`, `AestheticEvaluator` |
 | **View** | 노드·엣지·한붓 라인 시각화 | `NodeView`, `EdgeView`, `StrokeRenderer`, `EdgeCrossingMarkers` |
-| **UI** | HUD·레벨 선택·설정 패널 | `GameHUD`, `LevelSelectUI`, `SettingsPanel` |
 | **Editor** | 에디터 전용 도구 | `CreateDefaultLevel`, `CreateGameScene`, `LevelBakeTool` |
 
 ### 2.4 UI (테마·프리팹 시스템)
@@ -56,10 +55,11 @@ CircuitOneStroke/
 | `UI/Theme/` | `CircuitOneStrokeTheme` 에셋 (메뉴로 생성: Circuit One-Stroke → UI → Create Default Theme) |
 | `UI/Prefabs/` | Panel, Button, ProgressSlider 프리팹 (메뉴로 생성: Circuit One-Stroke → UI → Create UI Prefabs) |
 | `UI/Screens/` | 화면 구성용 (빈 폴더 또는 씬별 스크린 프리팹) |
-| `UI/Scripts/` | 테마·스타일·적용 로직 |
+| `UI/Scripts/` | 게임 UI 로직 + 테마·스타일·적용 로직 |
 
 **UI/Scripts 주요 타입**
 
+- **게임 UI**: `GameHUD`, `LevelSelectUI`, `SettingsPanel` — HUD·레벨 선택·설정 패널.
 - `CircuitOneStrokeTheme` — ScriptableObject: 색상, 폰트, Kenney/Skymon 스프라이트 슬롯.
 - `UIStyleConstants` — 테마 없을 때 폴백 색상 (다크 네이비, 네온 틸, 블루, 앰버/레드).
 - `ThemeApplier` — 하위 UI에 테마 적용; 스프라이트 없으면 색상 플레이스홀더.
@@ -88,7 +88,7 @@ CircuitOneStroke/
 
 - **전구(Bulb)**: 한 붓 안에서 정확히 1회만 방문해야 함.
 - **스위치(Switch)**: 방문 시 `switchGroupId`에 해당하는 게이트 그룹만 토글.
-- **게이트**: `gateGroupId`별로 열림/닫힘 상태 공유; 닫힌 엣지는 통과 불가.
+- **게이트**: 열림/닫힘 상태는 **엣지별**(`initialGateOpen`·런타임 `GateOpenByEdgeId`). 같은 `gateGroupId`의 엣지들은 **스위치 방문 시 함께 토글**되며, 닫힌 엣지는 통과 불가.
 - **다이오드**: AtoB / BtoA 방향 제한.
 
 ---
@@ -112,7 +112,7 @@ CircuitOneStroke/
 
 ## 6. 리소스·씬·빌드
 
-- **Resources**: `Levels/Level_N.asset` 등 LevelData 로드 경로.
+- **Resources**: 생성 레벨은 `Levels/GeneratedLevelManifest.asset`(LevelBakeTool이 저장)을 로드해 사용. 수동 레벨은 `Levels/Level_N.asset` 또는 씬에서 할당한 LevelManifest 사용.
 - **Scenes**: GameScene 등은 README의 “씬 구성” 참고.
 - **프리팹**: NodeView(SpriteRenderer + Collider2D + NodeView), EdgeView(LineRenderer + EdgeView), (선택) UI/Prefabs의 Panel/Button/ProgressSlider.
 
