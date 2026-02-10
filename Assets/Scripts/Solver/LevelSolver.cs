@@ -123,7 +123,7 @@ namespace CircuitOneStroke.Solver
             result.solvableWithinBudget = ctx.solutionsFound > 0;
             result.nodesExpanded = ctx.statesExpanded;
             result.status = ctx.aborted ? SolverStatus.BudgetExceeded : SolverStatus.Completed;
-            if (budgeted && ctx.statesExpanded >= expansionCap && ctx.solutionsFound == 0)
+            if (budgeted && ctx.statesExpanded >= ctx.maxStatesExpanded && ctx.solutionsFound == 0)
                 result.solvable = false;
 
             if (ctx.branchingAtDepth.Count > 0)
@@ -265,7 +265,6 @@ namespace CircuitOneStroke.Solver
                 return;
             }
 
-            int currentIndex = ctx.nodeIdToIndex[currentNodeId];
             int validCount = 0;
             foreach (var (neighborId, edge) in neighbors)
             {

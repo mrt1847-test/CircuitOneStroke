@@ -105,7 +105,7 @@ CircuitOneStroke/
 
 ## 5. Solver / Generation 연동
 
-- **LevelSolver**: DFS로 풀기 가능 여부·해 개수·메트릭 계산. `MaxNodesSupported`(기본 10) 초과 레벨은 미검증.
+- **LevelSolver**: DFS로 풀기 가능 여부·해 개수·메트릭 계산. `MaxNodesSupported`(기본 25, N>12는 예산 평가) 초과 레벨은 미검증.
 - **LevelGenerator**: `MaxNodesAllowed = LevelSolver.MaxNodesSupported`로 동일 상한 유지. 시드·난이도·스위치 포함 여부로 레벨 생성.
 
 ---
