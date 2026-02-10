@@ -1,6 +1,7 @@
 using UnityEngine;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.View;
+using System;
 
 namespace CircuitOneStroke.Core
 {
@@ -21,6 +22,7 @@ namespace CircuitOneStroke.Core
         public LevelRuntime Runtime => _runtime;
         public GameStateMachine StateMachine => _stateMachine;
         public LevelData LevelData => levelData;
+        public event Action<GameStateMachine> OnStateMachineChanged;
 
         public void RefreshNodeViews()
         {
@@ -60,6 +62,7 @@ namespace CircuitOneStroke.Core
             _runtime = new LevelRuntime();
             _runtime.Load(levelData);
             _stateMachine = new GameStateMachine(_runtime);
+            OnStateMachineChanged?.Invoke(_stateMachine);
 
             if (strokeRenderer != null)
                 strokeRenderer.Bind(_runtime);

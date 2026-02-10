@@ -21,9 +21,8 @@ namespace CircuitOneStroke.Input
         {
             if (levelLoader != null)
             {
-                _stateMachine = levelLoader.StateMachine;
-                if (_stateMachine != null)
-                    _stateMachine.OnStateChanged += OnGameStateChanged;
+                levelLoader.OnStateMachineChanged += HandleStateMachineChanged;
+                HandleStateMachineChanged(levelLoader.StateMachine);
             }
             if (mainCamera == null)
                 mainCamera = Camera.main;
@@ -31,8 +30,28 @@ namespace CircuitOneStroke.Input
 
         private void OnDestroy()
         {
+            if (levelLoader != null)
+                levelLoader.OnStateMachineChanged -= HandleStateMachineChanged;
             if (_stateMachine != null)
                 _stateMachine.OnStateChanged -= OnGameStateChanged;
+        }
+
+        private void HandleStateMachineChanged(GameStateMachine stateMachine)
+        {
+            if (_stateMachine != null)
+                _stateMachine.OnStateChanged -= OnGameStateChanged;
+
+            _stateMachine = stateMachine;
+
+            if (_stateMachine != null)
+            {
+                _stateMachine.OnStateChanged += OnGameStateChanged;
+                OnGameStateChanged(_stateMachine.State);
+            }
+            else
+            {
+                _lastCommittedNodeId = -1;
+            }
         }
 
         private void OnGameStateChanged(GameState state)
