@@ -126,7 +126,7 @@ namespace CircuitOneStroke.Core
             ltRect.offsetMin = ltRect.offsetMax = Vector2.zero;
             loadingText = loadingTextGo.AddComponent<Text>();
             loadingText.text = "Loading…";
-            loadingText.fontSize = 16;
+            loadingText.fontSize = 36;
             loadingText.color = UIStyleConstants.Primary;
             loadingText.alignment = TextAnchor.MiddleCenter;
         }

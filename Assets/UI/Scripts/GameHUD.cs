@@ -44,6 +44,8 @@ namespace CircuitOneStroke.UI
 
         [Header("Other")]
         [SerializeField] private Text levelLabel;
+        [Header("Bottom Bar (참고 스크린샷)")]
+        [SerializeField] private Button backButton;
 
         private GameStateMachine _stateMachine;
 
@@ -78,6 +80,8 @@ namespace CircuitOneStroke.UI
                 outOfHeartsBackButton.onClick.AddListener(OnHomeClicked);
             if (settingsButton != null)
                 settingsButton.onClick.AddListener(OnSettingsClicked);
+            if (backButton != null)
+                backButton.onClick.AddListener(OnHomeClicked);
 
             RefreshHeartsDisplay();
             RefreshVisibility();
@@ -178,7 +182,7 @@ namespace CircuitOneStroke.UI
             if (heartBar != null)
                 heartBar.SetHearts(h, max);
             else if (heartsText != null)
-                heartsText.text = $"{h}/{max}";
+                heartsText.text = $"\u2665 {h}/{max}";
             if (heartsDisplay != null)
                 heartsDisplay.SetActive(true);
         }

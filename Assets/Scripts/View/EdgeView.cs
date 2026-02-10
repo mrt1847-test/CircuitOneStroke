@@ -13,12 +13,12 @@ namespace CircuitOneStroke.View
     {
         public int EdgeId { get; private set; }
 
-        [Header("Colors")]
-        [SerializeField] private Color wireColor = new Color(0.3f, 0.3f, 0.4f);
-        [SerializeField] private Color wireHighlightColor = new Color(0.5f, 0.5f, 0.8f);
-        [SerializeField] private Color gateClosedColor = new Color(0.5f, 0.2f, 0.2f);
-        [SerializeField] private Color diodeRejectColor = new Color(1f, 0.3f, 0.2f);
-        [SerializeField] private Color diodeArrowColor = new Color(0.9f, 0.7f, 0.2f);
+        [Header("Colors")] // 라이트 테마: 블루(연결선), 연회색(미연결선)
+        [SerializeField] private Color wireColor = new Color(0.25f, 0.55f, 0.95f, 1f);
+        [SerializeField] private Color wireHighlightColor = new Color(0.35f, 0.65f, 1f, 1f);
+        [SerializeField] private Color gateClosedColor = new Color(0.75f, 0.35f, 0.35f, 1f);
+        [SerializeField] private Color diodeRejectColor = new Color(1f, 0.4f, 0.3f, 1f);
+        [SerializeField] private Color diodeArrowColor = new Color(1f, 0.88f, 0.4f, 1f);
 
         private LineRenderer _lr;
         private Vector2 _posA;
@@ -37,16 +37,24 @@ namespace CircuitOneStroke.View
             _lr = GetComponent<LineRenderer>();
             _lr.positionCount = 2;
             _lr.useWorldSpace = true;
+            if (_lr.startWidth < 0.2f) _lr.startWidth = 0.22f;
+            if (_lr.endWidth < 0.2f) _lr.endWidth = 0.22f;
         }
 
         private void OnEnable()
         {
-            GameSettings.Instance.OnChanged += OnSettingsChanged;
+            if (!Application.isPlaying)
+                return;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged += OnSettingsChanged;
         }
 
         private void OnDisable()
         {
-            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+            if (!Application.isPlaying)
+                return;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged -= OnSettingsChanged;
         }
 
         private void OnSettingsChanged(GameSettingsData _) => UpdateVisual();
@@ -166,11 +174,19 @@ namespace CircuitOneStroke.View
             }
         }
 
+        /// <summary>라이트 테마: 예전 보라/골드면 블루로 덮어씀.</summary>
+        private static bool IsOldDarkHue(Color c)
+        {
+            Color.RGBToHSV(c, out float h, out _, out _);
+            return h >= 0.5f && h <= 0.9f || (c.r >= 0.8f && c.g >= 0.7f && c.b < 0.8f);
+        }
+
         private void UpdateVisual()
         {
             bool colorBlind = GameSettings.Instance?.Data?.colorBlindMode ?? false;
-            Color rejectCol = colorBlind ? new Color(0.9f, 0.5f, 0.1f, 1f) : diodeRejectColor;  // orange vs red
-            Color gateCol = colorBlind ? new Color(0.3f, 0.4f, 0.7f, 1f) : gateClosedColor;    // blue vs red
+            Color rejectCol = colorBlind ? new Color(0.9f, 0.5f, 0.1f, 1f) : diodeRejectColor;
+            Color gateCol = colorBlind ? new Color(0.3f, 0.4f, 0.7f, 1f) : gateClosedColor;
+            Color wire = IsOldDarkHue(wireColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : wireColor;
 
             if (_showReject)
             {
@@ -179,7 +195,9 @@ namespace CircuitOneStroke.View
                 return;
             }
             bool gateClosed = _gateGroupId >= 0 && _runtime != null && !_runtime.IsGateOpen(EdgeId);
-            _lr.startColor = _lr.endColor = gateClosed ? gateCol : wireColor;
+            _lr.startColor = _lr.endColor = gateClosed ? gateCol : wire;
+            if (_lr.material != null)
+                _lr.material.color = Color.white;
             if (_gateClosedMarker != null)
             {
                 _gateClosedMarker.SetActive(gateClosed);

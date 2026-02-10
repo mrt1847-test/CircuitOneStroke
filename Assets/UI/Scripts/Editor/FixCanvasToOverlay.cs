@@ -13,6 +13,20 @@ namespace CircuitOneStroke.Editor
     /// </summary>
     public static class FixCanvasToOverlay
     {
+        [MenuItem("Circuit One-Stroke/UI/Fix Canvas to Portrait (1080x1920)", false)]
+        public static void FixCanvasToPortraitInScene()
+        {
+            var canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogWarning("씬에 Canvas가 없습니다.");
+                return;
+            }
+            ApplyPortraitToCanvas(canvas);
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            Debug.Log("캔버스 세로(1080x1920) 적용됨: " + canvas.gameObject.name);
+        }
+
         [MenuItem("Circuit One-Stroke/UI/Fix Canvas to Screen Space Overlay", true)]
         private static bool ValidateFixCanvas()
         {
@@ -35,7 +49,13 @@ namespace CircuitOneStroke.Editor
                 Debug.LogWarning("Select a Canvas or an object under a Canvas.");
                 return;
             }
+            ApplyPortraitToCanvas(canvas);
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            Debug.Log("Canvas: Overlay + 세로 1080x1920 적용됨.");
+        }
 
+        private static void ApplyPortraitToCanvas(Canvas canvas)
+        {
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
             var scaler = canvas.GetComponent<CanvasScaler>();
@@ -43,13 +63,19 @@ namespace CircuitOneStroke.Editor
                 scaler = canvas.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 1f;
+
+            var rect = canvas.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(1080, 1920);
+            }
 
             if (canvas.GetComponent<GraphicRaycaster>() == null)
                 canvas.gameObject.AddComponent<GraphicRaycaster>();
-
-            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            Debug.Log("Canvas set to Screen Space - Overlay. Check Game view.");
         }
     }
 }

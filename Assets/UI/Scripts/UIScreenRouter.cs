@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using CircuitOneStroke.Core;
 using CircuitOneStroke.Data;
 
@@ -70,6 +72,16 @@ namespace CircuitOneStroke.UI
         [Header("Overlay References")]
         [SerializeField] private GameHUD gameHUDRef;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void EnsureEventSystem()
+        {
+            if (UnityEngine.Object.FindFirstObjectByType<EventSystem>() != null)
+                return;
+            var go = new GameObject("EventSystem");
+            go.AddComponent<EventSystem>();
+            go.AddComponent<StandaloneInputModule>();
+        }
+
         private void Awake()
         {
             if (screenContainer == null)
@@ -98,6 +110,7 @@ namespace CircuitOneStroke.UI
             HideAllScreens();
             SetScreenActive(screen, true);
             CurrentScreen = screen;
+            SetRootBackgroundForScreen(screen);
             OnScreenChanged?.Invoke(CurrentScreen);
         }
 
@@ -153,6 +166,15 @@ namespace CircuitOneStroke.UI
         {
             var go = GetOrInstantiate(screen);
             go.SetActive(active);
+        }
+
+        /// <summary>게임 HUD일 때는 루트 배경을 투명하게 해서 카메라(퍼즐)가 보이게.</summary>
+        private void SetRootBackgroundForScreen(Screen screen)
+        {
+            if (screenContainer == null || screenContainer.parent == null || theme == null) return;
+            if (!screenContainer.parent.TryGetComponent<Image>(out var img)) return;
+            img.color = screen == Screen.GameHUD ? Color.clear : theme.background;
+            img.raycastTarget = screen != Screen.GameHUD;
         }
 
         private void HideAllScreens()
@@ -215,6 +237,7 @@ namespace CircuitOneStroke.UI
             HideAllScreens();
             SetScreenActive(Screen.Settings, true);
             CurrentScreen = Screen.Settings;
+            SetRootBackgroundForScreen(CurrentScreen);
             OnScreenChanged?.Invoke(CurrentScreen);
         }
 
@@ -224,6 +247,7 @@ namespace CircuitOneStroke.UI
             HideAllScreens();
             SetScreenActive(Screen.Shop, true);
             CurrentScreen = Screen.Shop;
+            SetRootBackgroundForScreen(CurrentScreen);
             OnScreenChanged?.Invoke(CurrentScreen);
         }
 
@@ -240,6 +264,7 @@ namespace CircuitOneStroke.UI
             HideAllScreens();
             SetScreenActive(target, true);
             CurrentScreen = target;
+            SetRootBackgroundForScreen(CurrentScreen);
             OnScreenChanged?.Invoke(CurrentScreen);
         }
 
@@ -258,6 +283,7 @@ namespace CircuitOneStroke.UI
             HideAllScreens();
             SetScreenActive(Screen.OutOfHearts, true);
             CurrentScreen = Screen.OutOfHearts;
+            SetRootBackgroundForScreen(CurrentScreen);
             OnScreenChanged?.Invoke(CurrentScreen);
         }
 
@@ -273,6 +299,7 @@ namespace CircuitOneStroke.UI
                 HideAllScreens();
                 SetScreenActive(Screen.GameHUD, true);
                 CurrentScreen = Screen.GameHUD;
+                SetRootBackgroundForScreen(CurrentScreen);
                 OnScreenChanged?.Invoke(CurrentScreen);
             }
         }
@@ -289,6 +316,7 @@ namespace CircuitOneStroke.UI
                 HideAllScreens();
                 SetScreenActive(Screen.GameHUD, true);
                 CurrentScreen = Screen.GameHUD;
+                SetRootBackgroundForScreen(CurrentScreen);
                 OnScreenChanged?.Invoke(CurrentScreen);
             }
         }

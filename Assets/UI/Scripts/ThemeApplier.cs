@@ -111,6 +111,11 @@ namespace CircuitOneStroke.UI.Theme
                     img.sprite = t.buttonPressedSprite ?? t.buttonSprite ?? img.sprite;
                     img.color = t.buttonSprite != null ? Color.white : t.primaryDim;
                     break;
+                case ThemeRole.Role.HeaderBar:
+                case ThemeRole.Role.FooterBar:
+                    img.sprite = t.panelSprite ?? img.sprite;
+                    img.color = t.panelSprite != null ? Color.white : t.primary;
+                    break;
                 case ThemeRole.Role.SliderBackground:
                     img.sprite = t.sliderBackgroundSprite ?? img.sprite;
                     img.color = t.sliderBackgroundSprite != null ? Color.white : t.panelBorder;
@@ -140,7 +145,9 @@ namespace CircuitOneStroke.UI.Theme
         private static void ApplyToText(Text text, CircuitOneStrokeTheme t)
         {
             if (text == null || t == null) return;
-            text.color = UseHighContrast() ? t.highContrastTextPrimary : t.textPrimary;
+            var textRole = text.GetComponent<ThemeTextRole>();
+            bool onAccent = textRole != null && textRole.useAccentColor;
+            text.color = onAccent ? t.textOnAccent : (UseHighContrast() ? t.highContrastTextPrimary : t.textPrimary);
             if (t.font != null)
                 text.font = t.font;
             var scaler = text.GetComponent<AccessibilityTextScaler>();

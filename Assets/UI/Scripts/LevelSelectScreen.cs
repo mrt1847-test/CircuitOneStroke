@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using CircuitOneStroke.Core;
 using CircuitOneStroke.Data;
+using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.UI
 {
@@ -58,7 +59,8 @@ namespace CircuitOneStroke.UI
 
         private void BuildGrid()
         {
-            if (gridContainer == null || levelCellPrefab == null) return;
+            if (gridContainer == null) return;
+            bool usePrefab = levelCellPrefab != null && levelCellPrefab.GetComponent<LevelSelectCell>() != null;
 
             int maxLevels = _manifest != null ? _manifest.Count : 20;
 
@@ -83,13 +85,92 @@ namespace CircuitOneStroke.UI
             for (int i = _cells.Count; i < maxLevels; i++)
             {
                 int levelId = i + 1;
-                var cellGo = Instantiate(levelCellPrefab, gridContainer);
-                var cell = cellGo.GetComponent<LevelSelectCell>();
-                if (cell == null)
-                    cell = cellGo.AddComponent<LevelSelectCell>();
+                GameObject cellGo;
+                LevelSelectCell cell;
+                if (usePrefab)
+                {
+                    cellGo = Instantiate(levelCellPrefab, gridContainer);
+                    cell = cellGo.GetComponent<LevelSelectCell>();
+                    if (cell == null)
+                    {
+                        cell = cellGo.AddComponent<LevelSelectCell>();
+                        cell.AssignReferencesFromChildren();
+                    }
+                    else
+                    {
+                        cell.AssignReferencesFromChildren();
+                    }
+                }
+                else
+                {
+                    cellGo = CreateLevelCellRuntime(gridContainer);
+                    cell = cellGo.GetComponent<LevelSelectCell>();
+                }
                 _cells.Add(cell);
             }
             RefreshAllCells(maxLevels);
+        }
+
+        /// <summary>LevelCell 프리팹에 스크립트가 깨져 있을 때 런타임에 셀 하나 생성. "Missing script" 로그 방지.</summary>
+        private static GameObject CreateLevelCellRuntime(Transform parent)
+        {
+            var root = new GameObject("LevelCell");
+            root.transform.SetParent(parent, false);
+
+            var rect = root.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(100, 100);
+
+            var bg = root.AddComponent<Image>();
+            bg.color = UIStyleConstants.PanelBase;
+
+            var btn = root.AddComponent<Button>();
+
+            var numGo = new GameObject("Number");
+            numGo.transform.SetParent(root.transform, false);
+            var numRect = numGo.AddComponent<RectTransform>();
+            numRect.anchorMin = new Vector2(0.2f, 0.4f);
+            numRect.anchorMax = new Vector2(0.8f, 0.8f);
+            numRect.offsetMin = numRect.offsetMax = Vector2.zero;
+            var numText = numGo.AddComponent<Text>();
+            numText.text = "1";
+            numText.fontSize = 42;
+            numText.alignment = TextAnchor.MiddleCenter;
+
+            var lockGo = new GameObject("LockOverlay");
+            lockGo.transform.SetParent(root.transform, false);
+            var lockRect = lockGo.AddComponent<RectTransform>();
+            lockRect.anchorMin = Vector2.zero;
+            lockRect.anchorMax = Vector2.one;
+            lockRect.offsetMin = lockRect.offsetMax = Vector2.zero;
+            var lockImg = lockGo.AddComponent<Image>();
+            lockImg.color = new Color(0, 0, 0, 0.7f);
+            lockImg.raycastTarget = false;
+            lockGo.SetActive(false);
+
+            var checkGo = new GameObject("ClearedCheckmark");
+            checkGo.transform.SetParent(root.transform, false);
+            var checkRect = checkGo.AddComponent<RectTransform>();
+            checkRect.anchorMin = new Vector2(0.7f, 0.7f);
+            checkRect.anchorMax = new Vector2(0.95f, 0.95f);
+            checkRect.offsetMin = checkRect.offsetMax = Vector2.zero;
+            var checkImg = checkGo.AddComponent<Image>();
+            checkImg.color = UIStyleConstants.Primary;
+            checkGo.SetActive(false);
+
+            var timeGo = new GameObject("BestTime");
+            timeGo.transform.SetParent(root.transform, false);
+            var timeRect = timeGo.AddComponent<RectTransform>();
+            timeRect.anchorMin = new Vector2(0.1f, 0.05f);
+            timeRect.anchorMax = new Vector2(0.9f, 0.35f);
+            timeRect.offsetMin = timeRect.offsetMax = Vector2.zero;
+            var timeText = timeGo.AddComponent<Text>();
+            timeText.text = "";
+            timeText.fontSize = 24;
+            timeText.alignment = TextAnchor.MiddleCenter;
+
+            var cell = root.AddComponent<LevelSelectCell>();
+            cell.AssignReferencesFromChildren();
+            return root;
         }
 
         private void RefreshAllCells(int maxLevels)
@@ -134,6 +215,27 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Button button;
 
         public System.Action OnClicked;
+
+        /// <summary>프리팹에 스크립트 참조가 깨졌을 때 런타임에 자식으로부터 참조 복구.</summary>
+        public void AssignReferencesFromChildren()
+        {
+            if (numberText != null && lockOverlay != null && clearedCheckmark != null && bestTimeText != null && button != null)
+                return;
+            var t = transform;
+            if (numberText == null)
+            {
+                var num = t.Find("Number");
+                if (num != null) numberText = num.GetComponent<Text>();
+            }
+            if (lockOverlay == null) lockOverlay = t.Find("LockOverlay")?.gameObject;
+            if (clearedCheckmark == null) clearedCheckmark = t.Find("ClearedCheckmark")?.gameObject;
+            if (bestTimeText == null)
+            {
+                var time = t.Find("BestTime");
+                if (time != null) bestTimeText = time.GetComponent<Text>();
+            }
+            if (button == null) button = GetComponent<Button>();
+        }
 
         public void Setup(int levelId, bool isLocked, bool isCleared, float bestTime)
         {

@@ -13,12 +13,12 @@ namespace CircuitOneStroke.View
     {
         public int NodeId { get; private set; }
 
-        [Header("Bulb")]
-        [SerializeField] private Color bulbOffColor = Color.gray;
-        [SerializeField] private Color bulbOnColor = Color.yellow;
+        [Header("Bulb")] // 라이트 테마: 흰 배경 + 블루 노드 (참고 스크린샷)
+        [SerializeField] private Color bulbOffColor = new Color(0.25f, 0.55f, 0.95f, 1f);
+        [SerializeField] private Color bulbOnColor = new Color(0.35f, 0.65f, 1f, 1f);
         [Header("Switch")]
-        [SerializeField] private Color switchColor = new Color(0.6f, 0.4f, 0.2f);
-        [SerializeField] private Color switchHighlightColor = new Color(0.9f, 0.7f, 0.3f);
+        [SerializeField] private Color switchColor = new Color(0.25f, 0.55f, 0.95f, 1f);
+        [SerializeField] private Color switchHighlightColor = new Color(0.4f, 0.7f, 1f, 1f);
         [Header("Touch (mobile)")]
         [Tooltip("Collider radius = sprite half-size * this. >1 for easier touch on small nodes (e.g. 25-node grid).")]
         [SerializeField] private float colliderRadiusScale = 1.35f;
@@ -29,18 +29,28 @@ namespace CircuitOneStroke.View
 
         private void Awake()
         {
+            if (!Application.isPlaying)
+                return;
             _sr = GetComponent<SpriteRenderer>();
+            if (_sr == null)
+                _sr = GetComponentInChildren<SpriteRenderer>();
         }
 
         private void OnEnable()
         {
-            GameSettings.Instance.OnChanged += OnSettingsChanged;
+            if (!Application.isPlaying)
+                return;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged += OnSettingsChanged;
             ApplyNodeSizeScale();
         }
 
         private void OnDisable()
         {
-            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+            if (!Application.isPlaying)
+                return;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged -= OnSettingsChanged;
         }
 
         private void OnSettingsChanged(GameSettingsData _) => ApplyNodeSizeScale();
@@ -61,6 +71,8 @@ namespace CircuitOneStroke.View
         /// <summary>LevelLoader가 스폰 시 호출. id·위치·타입 설정 후 시각 적용. 터치용 콜라이더 확대 적용.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
+            if (_sr == null)
+                _sr = GetComponent<SpriteRenderer>() ?? GetComponentInChildren<SpriteRenderer>();
             NodeId = nodeId;
             transform.position = new Vector3(pos.x, pos.y, 0f);
             _nodeType = nodeType;
@@ -84,17 +96,37 @@ namespace CircuitOneStroke.View
         /// <summary>스위치일 때만. 강조 색 토글.</summary>
         public void SetHighlight(bool highlight)
         {
+            if (_sr == null) return;
             if (_nodeType == NodeType.Switch)
-                _sr.color = highlight ? switchHighlightColor : switchColor;
+            {
+                Color sc = IsBluePurpleHue(switchColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : switchColor;
+                Color hi = IsBluePurpleHue(switchHighlightColor) ? new Color(0.4f, 0.7f, 1f, 1f) : switchHighlightColor;
+                _sr.color = highlight ? hi : sc;
+            }
         }
 
-        /// <summary>전구=방문 시 켜진 색, 스위치=고정 색.</summary>
+        /// <summary>HSV Hue가 파랑~보라 구간이면 true. 남색 배경과 유사해서 골드로 덮어쓸 때 씀.</summary>
+        private static bool IsBluePurpleHue(Color c)
+        {
+            Color.RGBToHSV(c, out float h, out _, out _);
+            return h >= 0.5f && h <= 0.9f;
+        }
+
+        /// <summary>전구=방문 시 켜진 색, 스위치=고정 색. 라이트 테마: 블루 계열로 통일.</summary>
         private void ApplyVisual()
         {
+            if (_sr == null) return;
             if (_nodeType == NodeType.Bulb)
-                _sr.color = _visited ? bulbOnColor : bulbOffColor;
+            {
+                Color off = IsBluePurpleHue(bulbOffColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : bulbOffColor;
+                Color on = IsBluePurpleHue(bulbOnColor) ? new Color(0.35f, 0.65f, 1f, 1f) : bulbOnColor;
+                _sr.color = _visited ? on : off;
+            }
             else
-                _sr.color = switchColor;
+            {
+                Color sc = IsBluePurpleHue(switchColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : switchColor;
+                _sr.color = sc;
+            }
         }
     }
 }

@@ -11,28 +11,37 @@ namespace CircuitOneStroke.View
     [RequireComponent(typeof(LineRenderer))]
     public class StrokeRenderer : MonoBehaviour
     {
-        [SerializeField] private Color strokeColor = new Color(1f, 0.9f, 0.2f);
-        [SerializeField] private float lineWidthBase = 0.15f;
+        [SerializeField] private Color strokeColor = new Color(0.25f, 0.55f, 0.95f, 1f);
+        [SerializeField] private float lineWidthBase = 0.22f;
 
         private LineRenderer _lr;
         private LevelRuntime _runtime;
+
+        private static float Luminance(Color c) => 0.299f * c.r + 0.587f * c.g + 0.114f * c.b;
 
         private void Awake()
         {
             _lr = GetComponent<LineRenderer>();
             _lr.useWorldSpace = true;
-            _lr.startColor = _lr.endColor = strokeColor;
+            Color c = Luminance(strokeColor) < 0.4f ? new Color(0.25f, 0.55f, 0.95f, 1f) : strokeColor;
+            _lr.startColor = _lr.endColor = c;
             ApplyLineWidth();
         }
 
         private void OnEnable()
         {
-            GameSettings.Instance.OnChanged += OnSettingsChanged;
+            if (!Application.isPlaying)
+                return;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged += OnSettingsChanged;
         }
 
         private void OnDisable()
         {
-            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+            if (!Application.isPlaying)
+                return;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged -= OnSettingsChanged;
         }
 
         private void OnSettingsChanged(GameSettingsData _) => ApplyLineWidth();

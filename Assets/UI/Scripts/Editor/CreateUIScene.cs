@@ -31,7 +31,7 @@ namespace CircuitOneStroke.Editor
                 cam.orthographicSize = 5f;
                 cam.transform.position = new Vector3(0, 0, -10);
                 cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = new Color(0.06f, 0.07f, 0.12f, 1f);
+                cam.backgroundColor = new Color(0.14f, 0.16f, 0.24f, 1f);
                 camGo.tag = "MainCamera";
                 Debug.Log("Main Camera added (required for Game view).");
             }

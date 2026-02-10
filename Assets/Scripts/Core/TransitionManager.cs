@@ -84,7 +84,6 @@ namespace CircuitOneStroke.Core
                 _overlay = Instantiate(prefab);
             }
             _overlay.transform.SetParent(transform);
-            DontDestroyOnLoad(_overlay.gameObject);
             _overlay.gameObject.SetActive(false);
         }
 

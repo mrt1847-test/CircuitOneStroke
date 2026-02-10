@@ -16,6 +16,9 @@ namespace CircuitOneStroke.UI.Theme
             Panel,
             Button,
             ButtonPressed,
+            /// <summary>상·하단 그린 바 (primary).</summary>
+            HeaderBar,
+            FooterBar,
             SliderBackground,
             SliderFill,
             ToggleBackground,

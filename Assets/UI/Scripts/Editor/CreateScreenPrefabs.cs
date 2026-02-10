@@ -73,8 +73,8 @@ namespace CircuitOneStroke.Editor
             var textGo = new GameObject("Text");
             textGo.transform.SetParent(root.transform, false);
             var text = textGo.AddComponent<Text>();
-            text.text = "5/5";
-            text.fontSize = 18;
+            text.text = "\u2665 5/5";
+            text.fontSize = 64;
             text.alignment = TextAnchor.MiddleCenter;
 
             var so = new SerializedObject(heartBar);
@@ -106,7 +106,7 @@ namespace CircuitOneStroke.Editor
             numRect.offsetMin = numRect.offsetMax = Vector2.zero;
             var numText = numGo.AddComponent<Text>();
             numText.text = "1";
-            numText.fontSize = 28;
+            numText.fontSize = 42;
             numText.alignment = TextAnchor.MiddleCenter;
 
             var lockGo = new GameObject("LockOverlay");
@@ -139,7 +139,7 @@ namespace CircuitOneStroke.Editor
             timeRect.offsetMin = timeRect.offsetMax = Vector2.zero;
             var timeText = timeGo.AddComponent<Text>();
             timeText.text = "";
-            timeText.fontSize = 12;
+            timeText.fontSize = 24;
             timeText.alignment = TextAnchor.MiddleCenter;
 
             var cell = root.AddComponent<LevelSelectCell>();
@@ -177,7 +177,7 @@ namespace CircuitOneStroke.Editor
             titleRect.anchoredPosition = Vector2.zero;
             var titleText = title.AddComponent<Text>();
             titleText.text = "Circuit One-Stroke";
-            titleText.fontSize = 42;
+            titleText.fontSize = 56;
             titleText.alignment = TextAnchor.MiddleCenter;
 
             var heartBarPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabsPath + "/HeartBar.prefab");
@@ -311,7 +311,7 @@ namespace CircuitOneStroke.Editor
             titleRect.offsetMin = titleRect.offsetMax = Vector2.zero;
             var titleText = title.AddComponent<Text>();
             titleText.text = "Settings";
-            titleText.fontSize = 32;
+            titleText.fontSize = 56;
             titleText.alignment = TextAnchor.MiddleCenter;
 
             // ScrollView
@@ -383,7 +383,7 @@ namespace CircuitOneStroke.Editor
                 var go = CreateButton(label, theme);
                 go.transform.SetParent(content.transform, false);
                 var le = go.AddComponent<LayoutElement>();
-                le.preferredHeight = 48;
+                le.preferredHeight = 56;
                 b = go.GetComponent<Button>();
                 return go;
             }
@@ -397,7 +397,7 @@ namespace CircuitOneStroke.Editor
                 le.preferredHeight = 40;
                 t = go.AddComponent<Text>();
                 t.text = text;
-                t.fontSize = 14;
+                t.fontSize = 28;
                 return go;
             }
 
@@ -487,7 +487,7 @@ namespace CircuitOneStroke.Editor
             le.preferredHeight = 36;
             var t = go.AddComponent<Text>();
             t.text = label;
-            t.fontSize = 22;
+            t.fontSize = 36;
             t.fontStyle = FontStyle.Bold;
             return go;
         }
@@ -509,7 +509,7 @@ namespace CircuitOneStroke.Editor
             labelRect.offsetMax = new Vector2(-80, -2);
             var labelT = labelGo.AddComponent<Text>();
             labelT.text = label;
-            labelT.fontSize = 16;
+            labelT.fontSize = 32;
 
             var valueGo = new GameObject("Value");
             valueGo.transform.SetParent(root.transform, false);
@@ -520,7 +520,7 @@ namespace CircuitOneStroke.Editor
             valueRect.offsetMax = new Vector2(-10, -2);
             valueText = valueGo.AddComponent<Text>();
             valueText.text = "100%";
-            valueText.fontSize = 14;
+            valueText.fontSize = 28;
             valueText.alignment = TextAnchor.MiddleRight;
 
             var sliderGo = new GameObject("Slider");
@@ -579,7 +579,7 @@ namespace CircuitOneStroke.Editor
             labelRect.offsetMax = new Vector2(-10, 0);
             var labelT = labelGo.AddComponent<Text>();
             labelT.text = label;
-            labelT.fontSize = 16;
+            labelT.fontSize = 32;
 
             var ddGo = new GameObject("Dropdown");
             ddGo.transform.SetParent(root.transform, false);
@@ -600,7 +600,7 @@ namespace CircuitOneStroke.Editor
             capRect.offsetMax = new Vector2(-25, 0);
             var capT = caption.AddComponent<Text>();
             capT.text = options.Length > 0 ? options[0] : "";
-            capT.fontSize = 14;
+            capT.fontSize = 28;
             dropdown.captionText = capT;
             dropdown.targetGraphic = ddImg;
 
@@ -649,7 +649,7 @@ namespace CircuitOneStroke.Editor
             ilR.offsetMax = new Vector2(-10, 0);
             var ilT = itemLabel.AddComponent<Text>();
             ilT.text = "Option";
-            ilT.fontSize = 14;
+            ilT.fontSize = 28;
             ilT.alignment = TextAnchor.MiddleLeft;
             dropdown.itemText = ilT;
             dropdown.template = tRect;
@@ -686,7 +686,7 @@ namespace CircuitOneStroke.Editor
             descRect.offsetMin = descRect.offsetMax = Vector2.zero;
             var descText = desc.AddComponent<Text>();
             descText.text = "Remove Forced Ads: Interstitial ads are removed. Rewarded ads (hearts refill) remain optional.";
-            descText.fontSize = 20;
+            descText.fontSize = 36;
             descText.alignment = TextAnchor.MiddleCenter;
             descText.resizeTextForBestFit = true;
 
@@ -725,7 +725,7 @@ namespace CircuitOneStroke.Editor
             msgRect.offsetMin = msgRect.offsetMax = Vector2.zero;
             var msgText = msg.AddComponent<Text>();
             msgText.text = "Out of hearts!\nWatch an ad to refill.";
-            msgText.fontSize = 28;
+            msgText.fontSize = 48;
             msgText.alignment = TextAnchor.MiddleCenter;
 
             var watchBtn = CreateButton("Watch Ad to Refill", theme);
@@ -748,7 +748,7 @@ namespace CircuitOneStroke.Editor
         {
             var go = new GameObject(label + "Button");
             var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(160, 48);
+            rect.sizeDelta = new Vector2(200, 56);
             var img = go.AddComponent<Image>();
             img.color = theme != null ? theme.primary : UIStyleConstants.Primary;
             go.AddComponent<Button>();
@@ -756,7 +756,7 @@ namespace CircuitOneStroke.Editor
             textGo.transform.SetParent(go.transform, false);
             var text = textGo.AddComponent<Text>();
             text.text = label;
-            text.fontSize = 20;
+            text.fontSize = 56;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = theme != null ? theme.textOnAccent : UIStyleConstants.TextOnAccent;
             var textRect = textGo.GetComponent<RectTransform>();
@@ -794,7 +794,7 @@ namespace CircuitOneStroke.Editor
             labelRect.offsetMax = new Vector2(-50, 0);
             var labelText = labelGo.AddComponent<Text>();
             labelText.text = label;
-            labelText.fontSize = 18;
+            labelText.fontSize = 36;
 
             var checkGo = new GameObject("Checkmark");
             checkGo.transform.SetParent(go.transform, false);

@@ -99,7 +99,7 @@ namespace CircuitOneStroke.Editor
             var text = label.AddComponent<Text>();
             text.text = "Button";
             text.alignment = TextAnchor.MiddleCenter;
-            text.fontSize = 18;
+            text.fontSize = 56;
             text.color = theme != null ? theme.textOnAccent : UIStyleConstants.TextOnAccent;
             if (theme != null && theme.font != null) text.font = theme.font;
 

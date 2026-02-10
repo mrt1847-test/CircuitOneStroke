@@ -59,7 +59,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0.85, b: 0.75, a: 1}
+  m_Color: {r: 0.18, g: 0.75, b: 0.42, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -88,7 +88,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: beafc5484e047b54cb4958dbdf7453ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.UI.Theme.ThemeRole
-  role: 6
+  role: 8
 --- !u!1 &2505250021810980636
 GameObject:
   m_ObjectHideFlags: 0
@@ -253,7 +253,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.15, g: 0.18, b: 0.25, a: 1}
+  m_Color: {r: 0.88, g: 0.88, b: 0.92, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -282,7 +282,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: beafc5484e047b54cb4958dbdf7453ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.UI.Theme.ThemeRole
-  role: 5
+  role: 7
 --- !u!1 &6575789425788167869
 GameObject:
   m_ObjectHideFlags: 0

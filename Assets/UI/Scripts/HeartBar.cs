@@ -48,7 +48,7 @@ namespace CircuitOneStroke.UI
                 }
             }
             if (heartsText != null && heartsText.gameObject.activeSelf)
-                heartsText.text = $"{current}/{max}";
+                heartsText.text = $"\u2665 {current}/{max}";
         }
     }
 }
