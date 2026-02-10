@@ -19,7 +19,7 @@ namespace CircuitOneStroke.Generation
     /// </summary>
     public static class LevelGenerator
     {
-        /// <summary>Solver와 동일 제한 공유. 확장 시 LevelSolver.MaxNodesSupported와 함께 변경.</summary>
+        /// <summary>Solver와 동일 제한 공유. 16–25 노드 생성은 BackboneFirstGenerator + LevelSolverV2 사용 (Editor Bake); 여기서는 템플릿 기반 생성 상한.</summary>
         public const int MaxNodesAllowed = LevelSolver.MaxNodesSupported;
         private const float MinNodeDistance = 0.5f;
         private const float JitterMaxFractionOfAvgEdge = 0.05f;

@@ -62,9 +62,68 @@ namespace CircuitOneStroke.Generation
                 default:
                     if (n >= 5 && n <= 10)
                         list.Add(new LayoutTemplate { name = "Ring", nodeCount = n, slots = Ring(n) });
+                    else if (n >= 16 && n <= 25)
+                        list.AddRange(GetLayoutsForNodeCountV2(n));
                     break;
             }
             return list;
+        }
+
+        /// <summary>Layouts for 16–25 nodes: Ring, Grid, Star, Ladder, TwoCluster.</summary>
+        public static List<LayoutTemplate> GetLayoutsForNodeCountV2(int n)
+        {
+            var list = new List<LayoutTemplate>();
+            list.Add(new LayoutTemplate { name = "Ring", nodeCount = n, slots = Ring(n) });
+            list.Add(new LayoutTemplate { name = "Grid", nodeCount = n, slots = GridSparse(n) });
+            list.Add(new LayoutTemplate { name = "Star", nodeCount = n, slots = Star(n) });
+            list.Add(new LayoutTemplate { name = "Ladder", nodeCount = n, slots = Ladder(n) });
+            list.Add(new LayoutTemplate { name = "TwoCluster", nodeCount = n, slots = TwoClusters(n) });
+            return list;
+        }
+
+        private static Vector2[] GridSparse(int n)
+        {
+            int rows = n <= 16 ? 4 : n <= 20 ? 5 : 5;
+            int cols = n <= 16 ? 4 : n <= 20 ? 4 : 5;
+            int total = rows * cols;
+            if (n > total) { cols = (n + rows - 1) / rows; total = rows * cols; }
+            var s = new Vector2[n];
+            float w = GridSpacing * 1.2f;
+            int idx = 0;
+            for (int r = 0; r < rows && idx < n; r++)
+                for (int c = 0; c < cols && idx < n; c++)
+                    s[idx++] = new Vector2((c - (cols - 1) * 0.5f) * w, ((rows - 1) * 0.5f - r) * w);
+            return s;
+        }
+
+        private static Vector2[] Star(int n)
+        {
+            float outer = RingRadius;
+            float inner = RingRadius * 0.5f;
+            var s = new Vector2[n];
+            for (int i = 0; i < n; i++)
+            {
+                float angle = (2f * Mathf.PI * i / n) - Mathf.PI / 2f;
+                float r = (i % 2 == 0) ? outer : inner;
+                s[i] = new Vector2(r * Mathf.Cos(angle), r * Mathf.Sin(angle));
+            }
+            return s;
+        }
+
+        private static Vector2[] Ladder(int n)
+        {
+            int cols = (n + 1) / 2;
+            float w = GridSpacing * 1.3f;
+            var s = new Vector2[n];
+            int idx = 0;
+            for (int c = 0; c < cols && idx < n; c++)
+            {
+                float x = (c - (cols - 1) * 0.5f) * w;
+                s[idx++] = new Vector2(x, w * 0.5f);
+                if (idx < n)
+                    s[idx++] = new Vector2(x, -w * 0.5f);
+            }
+            return s;
         }
 
         private static Vector2[] Grid2x4()
