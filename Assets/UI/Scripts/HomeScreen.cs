@@ -38,12 +38,14 @@ namespace CircuitOneStroke.UI
                 shopButton.onClick.AddListener(OnShop);
 
             RefreshHearts();
-            HeartsManager.Instance.OnHeartsChanged += OnHeartsChanged;
+            if (HeartsManager.Instance != null)
+                HeartsManager.Instance.OnHeartsChanged += OnHeartsChanged;
         }
 
         private void OnDestroy()
         {
-            HeartsManager.Instance.OnHeartsChanged -= OnHeartsChanged;
+            if (HeartsManager.Instance != null)
+                HeartsManager.Instance.OnHeartsChanged -= OnHeartsChanged;
         }
 
         private void OnEnable()
@@ -55,7 +57,7 @@ namespace CircuitOneStroke.UI
 
         private void RefreshHearts()
         {
-            if (heartBar != null)
+            if (heartBar != null && HeartsManager.Instance != null)
                 heartBar.SetHearts(HeartsManager.Instance.Hearts, HeartsManager.Instance.MaxHearts);
         }
 

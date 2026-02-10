@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26deb66697b707549b5c7d7ae7b886cb, type: 3}
+  m_Name: CircuitOneStrokeTheme
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.UI.Theme.CircuitOneStrokeTheme
+  background: {r: 0.06, g: 0.07, b: 0.12, a: 1}
+  panelBase: {r: 0.08, g: 0.1, b: 0.16, a: 0.95}
+  panelBorder: {r: 0.15, g: 0.18, b: 0.25, a: 1}
+  primary: {r: 0, g: 0.85, b: 0.75, a: 1}
+  primaryDim: {r: 0, g: 0.55, b: 0.5, a: 1}
+  secondary: {r: 0.35, g: 0.55, b: 0.85, a: 1}
+  secondaryDim: {r: 0.25, g: 0.4, b: 0.6, a: 1}
+  warning: {r: 1, g: 0.75, b: 0.2, a: 1}
+  danger: {r: 0.95, g: 0.25, b: 0.2, a: 1}
+  textPrimary: {r: 0.95, g: 0.97, b: 1, a: 1}
+  textSecondary: {r: 0.65, g: 0.72, b: 0.85, a: 1}
+  textOnAccent: {r: 0.06, g: 0.08, b: 0.12, a: 1}
+  font: {fileID: 12800000, guid: 42837862c3d18eb4e8966e51772f7837, type: 3}
+  panelSprite: {fileID: 0}
+  buttonSprite: {fileID: 0}
+  buttonPressedSprite: {fileID: 0}
+  sliderBackgroundSprite: {fileID: 0}
+  sliderFillSprite: {fileID: 0}
+  toggleBackgroundSprite: {fileID: 0}
+  toggleCheckSprite: {fileID: 0}
+  iconPlay: {fileID: 0}
+  iconPause: {fileID: 0}
+  iconSettings: {fileID: 0}
+  iconRetry: {fileID: 0}
+  iconLevel: {fileID: 0}
+  iconBack: {fileID: 0}
+  highContrastBackground: {r: 0.02, g: 0.03, b: 0.06, a: 1}
+  highContrastTextPrimary: {r: 1, g: 1, b: 1, a: 1}
+  highContrastPanelBorder: {r: 0.4, g: 0.5, b: 0.7, a: 1}

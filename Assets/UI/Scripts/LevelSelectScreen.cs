@@ -26,8 +26,8 @@ namespace CircuitOneStroke.UI
         public void BindRouter(UIScreenRouter router)
         {
             _router = router;
-            _manifest = router.LevelManifest;
-            _loader = router.LevelLoader;
+            _manifest = router != null ? router.LevelManifest : null;
+            _loader = router != null ? router.LevelLoader : null;
         }
 
         private void Awake()
@@ -114,7 +114,7 @@ namespace CircuitOneStroke.UI
             int unlocked = LevelRecords.LastUnlockedLevelId(maxLevels);
             if (levelId > unlocked) return;
 
-            if (!HeartsManager.Instance.CanStartAttempt())
+            if (HeartsManager.Instance == null || !HeartsManager.Instance.CanStartAttempt())
             {
                 _router?.ShowOutOfHearts(OutOfHeartsContext.FromLevelSelect);
                 return;

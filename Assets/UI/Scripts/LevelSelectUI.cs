@@ -80,7 +80,10 @@ namespace CircuitOneStroke.UI
 
         private IEnumerator LoadAndRefreshRoutine(IEnumerator loadWork)
         {
-            yield return TransitionManager.Instance.RunTransition(loadWork);
+            if (TransitionManager.Instance != null)
+                yield return TransitionManager.Instance.RunTransition(loadWork);
+            else if (loadWork != null)
+                yield return loadWork;
             Refresh();
         }
 

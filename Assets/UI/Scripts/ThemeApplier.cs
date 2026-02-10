@@ -23,12 +23,14 @@ namespace CircuitOneStroke.UI.Theme
         {
             if (applyOnEnable)
                 Apply(theme);
-            GameSettings.Instance.OnChanged += OnSettingsChanged;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged += OnSettingsChanged;
         }
 
         private void OnDisable()
         {
-            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged -= OnSettingsChanged;
         }
 
         private void OnSettingsChanged(GameSettingsData _)
@@ -44,6 +46,14 @@ namespace CircuitOneStroke.UI.Theme
         }
 
         public void Apply() => Apply(theme);
+
+#if UNITY_EDITOR
+        [ContextMenu("Apply Theme Now")]
+        private void ApplyThemeInEditor()
+        {
+            if (theme != null) Apply(theme);
+        }
+#endif
 
         private static void ApplyRecursive(Transform root, CircuitOneStrokeTheme t, bool recurse)
         {

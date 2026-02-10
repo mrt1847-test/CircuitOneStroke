@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using CircuitOneStroke.Data;
+using Random = System.Random;
 
 namespace CircuitOneStroke.Generation
 {

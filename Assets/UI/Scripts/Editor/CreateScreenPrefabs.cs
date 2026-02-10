@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
+using CircuitOneStroke.UI;
 using CircuitOneStroke.UI.Theme;
 using CircuitOneStroke.Core;
 using CircuitOneStroke.Data;
@@ -557,7 +558,7 @@ namespace CircuitOneStroke.Editor
             fill.GetComponent<RectTransform>().anchorMax = Vector2.one;
             fill.GetComponent<RectTransform>().offsetMin = fill.GetComponent<RectTransform>().offsetMax = Vector2.zero;
             slider.fillRect = fill.GetComponent<RectTransform>();
-            slider.fillDirection = Slider.Direction.LeftToRight;
+            slider.direction = Slider.Direction.LeftToRight;
             return root;
         }
 

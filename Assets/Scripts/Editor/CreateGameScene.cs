@@ -28,7 +28,7 @@ namespace CircuitOneStroke.Editor
             CreateScreenPrefabs.CreateAll();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-            var cam = Object.FindObjectOfType<Camera>();
+            var cam = Object.FindFirstObjectByType<Camera>();
             if (cam != null)
             {
                 cam.orthographic = true;
@@ -297,6 +297,7 @@ namespace CircuitOneStroke.Editor
                 routerSo.FindProperty("levelManifest").objectReferenceValue = manifest;
                 routerSo.FindProperty("theme").objectReferenceValue = theme;
                 routerSo.FindProperty("gameHUDRef").objectReferenceValue = gameHud;
+                routerSo.FindProperty("initialScreen").enumValueIndex = (int)CircuitOneStroke.UI.UIScreenRouter.Screen.LevelSelect;
                 routerSo.ApplyModifiedPropertiesWithoutUndo();
             }
 
@@ -308,7 +309,7 @@ namespace CircuitOneStroke.Editor
 
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/GameScene.unity");
             AssetDatabase.Refresh();
-            Debug.Log("Created Assets/Scenes/GameScene.unity - app starts on HomeScreen. Run level from Continue/LevelSelect.");
+            Debug.Log("Created Assets/Scenes/GameScene.unity - app starts on LevelSelect (puzzle-style). Run level from grid.");
         }
 
         private static GameObject CreateUIRoot(CircuitOneStrokeTheme theme)
@@ -366,8 +367,8 @@ namespace CircuitOneStroke.Editor
             var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
             go.name = "NodeView";
             go.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
-            DestroyImmediate(go.GetComponent<MeshRenderer>());
-            DestroyImmediate(go.GetComponent<MeshFilter>());
+            Object.DestroyImmediate(go.GetComponent<MeshRenderer>());
+            Object.DestroyImmediate(go.GetComponent<MeshFilter>());
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = CreateCircleSprite();
             sr.color = Color.gray;

@@ -176,13 +176,26 @@ namespace CircuitOneStroke.Core
 
             IEnumerator RunWork()
             {
-                try
+                if (work != null)
                 {
-                    if (work != null)
-                        while (work.MoveNext())
-                            yield return work.Current;
+                    while (true)
+                    {
+                        bool hasNext;
+                        object current;
+                        try
+                        {
+                            hasNext = work.MoveNext();
+                            current = hasNext ? work.Current : null;
+                        }
+                        catch (Exception ex)
+                        {
+                            onError?.Invoke(ex);
+                            break;
+                        }
+                        if (!hasNext) break;
+                        yield return current;
+                    }
                 }
-                catch (Exception ex) { onError?.Invoke(ex); }
                 workComplete = true;
             }
 

@@ -60,6 +60,7 @@ namespace CircuitOneStroke.UI
         private void Start()
         {
             var gs = GameSettings.Instance;
+            if (gs == null) return;
             var d = gs.Data;
 
             // Top
@@ -187,15 +188,15 @@ namespace CircuitOneStroke.UI
 
         private void UpdateMusicSliderState()
         {
-            if (musicVolumeSlider != null) musicVolumeSlider.interactable = GameSettings.Instance.Data.musicEnabled;
+            if (musicVolumeSlider != null && GameSettings.Instance != null) musicVolumeSlider.interactable = GameSettings.Instance.Data.musicEnabled;
         }
         private void UpdateSfxSliderState()
         {
-            if (sfxVolumeSlider != null) sfxVolumeSlider.interactable = GameSettings.Instance.Data.sfxEnabled;
+            if (sfxVolumeSlider != null && GameSettings.Instance != null) sfxVolumeSlider.interactable = GameSettings.Instance.Data.sfxEnabled;
         }
         private void UpdateHapticsDropdownState()
         {
-            if (hapticsStrengthDropdown != null) hapticsStrengthDropdown.interactable = GameSettings.Instance.Data.hapticsEnabled;
+            if (hapticsStrengthDropdown != null && GameSettings.Instance != null) hapticsStrengthDropdown.interactable = GameSettings.Instance.Data.hapticsEnabled;
         }
         private void RefreshMusicVolumeText()
         {

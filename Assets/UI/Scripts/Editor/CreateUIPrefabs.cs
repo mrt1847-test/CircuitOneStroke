@@ -37,10 +37,11 @@ namespace CircuitOneStroke.Editor
         {
             var root = new GameObject("Panel");
             var rect = root.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(400, 300);
-            rect.anchoredPosition = Vector2.zero;
+            // 부모(ScreenRoot)를 채우도록 스트레치. 작은 패널이 필요하면 씬에서 별도 오브젝트로 조정.
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(24, 24);
+            rect.offsetMax = new Vector2(-24, -24);
 
             var image = root.AddComponent<Image>();
             image.color = theme != null ? theme.panelBase : UIStyleConstants.PanelBase;

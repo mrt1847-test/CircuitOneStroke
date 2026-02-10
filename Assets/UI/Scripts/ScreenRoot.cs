@@ -28,6 +28,16 @@ namespace CircuitOneStroke.UI
                 applier = gameObject.AddComponent<ThemeApplier>();
             applier.Theme = theme;
             applier.Apply(theme);
+
+            if (applyThemeToChildren)
+            {
+                foreach (var child in GetComponentsInChildren<ThemeApplier>(true))
+                {
+                    if (child == applier) continue;
+                    child.Theme = theme;
+                    child.Apply(theme);
+                }
+            }
         }
     }
 }

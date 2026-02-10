@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.Services;
+using CircuitOneStroke.UI;
 
 namespace CircuitOneStroke.Core
 {
@@ -37,8 +38,8 @@ namespace CircuitOneStroke.Core
             }
             Instance = this;
 
-            if (router == null) router = FindObjectOfType<UIScreenRouter>();
-            if (levelLoader == null) levelLoader = FindObjectOfType<LevelLoader>();
+            if (router == null) router = FindFirstObjectByType<UIScreenRouter>();
+            if (levelLoader == null) levelLoader = FindFirstObjectByType<LevelLoader>();
             if (levelManifest == null) levelManifest = Resources.Load<LevelManifest>("Levels/GeneratedLevelManifest");
         }
 
@@ -49,7 +50,7 @@ namespace CircuitOneStroke.Core
 
         public void Boot()
         {
-            router?.ShowHome();
+            router.ShowHome();
         }
 
         public void RequestStartLevel(int levelId)
@@ -91,7 +92,7 @@ namespace CircuitOneStroke.Core
 
         private IEnumerator TryInterstitialThenBuildAndShow(int levelId)
         {
-            var service = AdServiceRegistry.Instance ?? FindObjectOfType<AdServiceMock>() as IAdService;
+            var service = AdServiceRegistry.Instance ?? FindFirstObjectByType<AdServiceMock>() as IAdService;
             int levelIndex = Mathf.Max(0, levelId - 2);
             var config = AdPlacementConfig.Instance?.GetConfig(AdPlacement.Interstitial_EveryNClears)
                 ?? AdPlacementConfig.GetDefaultConfig(AdPlacement.Interstitial_EveryNClears);

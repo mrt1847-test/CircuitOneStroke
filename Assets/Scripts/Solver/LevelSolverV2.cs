@@ -261,7 +261,7 @@ namespace CircuitOneStroke.Solver
         private static bool CheckBudget(SolverContext ctx)
         {
             if (ctx.TimeBudgetMs <= 0) return true;
-            long elapsed = ctx.Stopwatch != null ? ctx.Stopwatch.ElapsedMilliseconds : (Environment.TickCount64 - ctx.StartTicks);
+            long elapsed = ctx.Stopwatch != null ? ctx.Stopwatch.ElapsedMilliseconds : (Environment.TickCount - ctx.StartTicks);
             if (elapsed >= ctx.TimeBudgetMs)
             {
                 ctx.TimedOut = true;
@@ -273,7 +273,8 @@ namespace CircuitOneStroke.Solver
         private static uint ToggleGroup(SolverContext ctx, uint gateMask, int groupId)
         {
             if (groupId < 0 || ctx.GroupIdToMask == null) return gateMask;
-            return (uint)((int)gateMask ^ ctx.GroupIdToMask.TryGetValue(groupId, out int m) ? m : 0);
+            int mask = ctx.GroupIdToMask.TryGetValue(groupId, out int m) ? m : 0;
+            return (uint)((int)gateMask ^ mask);
         }
 
         private static bool GateOpen(SolverContext ctx, uint gateMask, EdgeRef e)
@@ -385,7 +386,7 @@ namespace CircuitOneStroke.Solver
         private static (bool feasible, List<int> path) FindOneSolution(SolverContext ctx, SolverSettings settings, Stopwatch sw)
         {
             ctx.Stopwatch = sw;
-            ctx.StartTicks = Environment.TickCount64;
+            ctx.StartTicks = Environment.TickCount;
             ctx.TimeBudgetMs = settings.TimeBudgetMs;
             ctx.ExpandedStates = 0;
             ctx.Backtracks = 0;

@@ -25,13 +25,15 @@ namespace CircuitOneStroke.UI
 
         private void OnEnable()
         {
-            GameSettings.Instance.OnChanged += OnSettingsChanged;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged += OnSettingsChanged;
             ApplyScale();
         }
 
         private void OnDisable()
         {
-            GameSettings.Instance.OnChanged -= OnSettingsChanged;
+            if (GameSettings.Instance != null)
+                GameSettings.Instance.OnChanged -= OnSettingsChanged;
         }
 
         private void OnSettingsChanged(GameSettingsData _) => ApplyScale();

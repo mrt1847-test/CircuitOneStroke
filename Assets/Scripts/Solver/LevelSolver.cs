@@ -57,7 +57,7 @@ namespace CircuitOneStroke.Solver
             public int n;
             public Dictionary<int, List<(int neighbor, EdgeData edge)>> adj;
             public Dictionary<int, int> edgeIdToGateBit;
-            public int[] nodeIdToIndex;
+            public Dictionary<int, int> nodeIdToIndex;
             public int[] indexToNodeId;
             public bool[] nodeIsSwitch;
             public int[] switchGroupId;
@@ -97,14 +97,14 @@ namespace CircuitOneStroke.Solver
             if (ctx == null)
                 return result;
             ctx.maxMillis = maxMillis;
-            ctx.startTicks = Environment.TickCount64;
+            ctx.startTicks = Environment.TickCount;
 
             ctx.branchingAtDepth = new List<float>();
             ctx.deadEndDepths = new List<int>();
 
             for (int startIndex = 0; startIndex < ctx.n && !ctx.aborted; startIndex++)
             {
-                if (ctx.maxMillis > 0 && (Environment.TickCount64 - ctx.startTicks) >= ctx.maxMillis)
+                if (ctx.maxMillis > 0 && (Environment.TickCount - ctx.startTicks) >= ctx.maxMillis)
                 {
                     ctx.aborted = true;
                     break;
@@ -246,7 +246,7 @@ namespace CircuitOneStroke.Solver
                 ctx.aborted = true;
                 return;
             }
-            if (ctx.maxMillis > 0 && (Environment.TickCount64 - ctx.startTicks) >= ctx.maxMillis)
+            if (ctx.maxMillis > 0 && (Environment.TickCount - ctx.startTicks) >= ctx.maxMillis)
             {
                 ctx.aborted = true;
                 return;

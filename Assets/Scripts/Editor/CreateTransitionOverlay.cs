@@ -29,7 +29,7 @@ namespace CircuitOneStroke.Editor
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 32767;
             canvas.overrideSorting = true;
-            root.AddComponent<UnityEngine.CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             root.AddComponent<GraphicRaycaster>();
 
             var view = root.AddComponent<CircuitOneStroke.Core.TransitionOverlayView>();

@@ -49,11 +49,14 @@ namespace CircuitOneStroke.UI
 
         private void Start()
         {
-            if (levelLoader == null) levelLoader = FindObjectOfType<LevelLoader>();
+            if (levelLoader == null) levelLoader = FindFirstObjectByType<LevelLoader>();
             if (levelManifest == null) levelManifest = Resources.Load<LevelManifest>("Levels/GeneratedLevelManifest");
 
-            HeartsManager.Instance.OnHeartsChanged += OnHeartsChanged;
-            HeartsManager.Instance.OnOutOfHearts += OnOutOfHearts;
+            if (HeartsManager.Instance != null)
+            {
+                HeartsManager.Instance.OnHeartsChanged += OnHeartsChanged;
+                HeartsManager.Instance.OnOutOfHearts += OnOutOfHearts;
+            }
 
             if (levelLoader != null)
             {
@@ -83,8 +86,11 @@ namespace CircuitOneStroke.UI
 
         private void OnDestroy()
         {
-            HeartsManager.Instance.OnHeartsChanged -= OnHeartsChanged;
-            HeartsManager.Instance.OnOutOfHearts -= OnOutOfHearts;
+            if (HeartsManager.Instance != null)
+            {
+                HeartsManager.Instance.OnHeartsChanged -= OnHeartsChanged;
+                HeartsManager.Instance.OnOutOfHearts -= OnOutOfHearts;
+            }
             if (levelLoader != null)
                 levelLoader.OnStateMachineChanged -= HandleStateMachineChanged;
             if (_stateMachine != null)
@@ -166,6 +172,7 @@ namespace CircuitOneStroke.UI
 
         private void RefreshHeartsDisplay()
         {
+            if (HeartsManager.Instance == null) return;
             int h = HeartsManager.Instance.Hearts;
             int max = HeartsManager.Instance.MaxHearts;
             if (heartBar != null)
@@ -194,6 +201,7 @@ namespace CircuitOneStroke.UI
         private void UpdateFailMessage()
         {
             if (failMessageText == null) return;
+            if (HeartsManager.Instance == null) { failMessageText.text = "Try again?"; return; }
             if (HeartsManager.Instance.Hearts > 0)
                 failMessageText.text = "Try again?";
             else
@@ -202,7 +210,7 @@ namespace CircuitOneStroke.UI
 
         private void RefreshFailDialogButtons()
         {
-            bool hasHearts = HeartsManager.Instance.CanStartAttempt();
+            bool hasHearts = HeartsManager.Instance != null && HeartsManager.Instance.CanStartAttempt();
             if (retryButton != null)
             {
                 retryButton.interactable = hasHearts;
@@ -214,13 +222,13 @@ namespace CircuitOneStroke.UI
 
         private void OnRetryClicked()
         {
-            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+            var flow = UIServices.GetFlow();
             if (flow != null)
             {
                 flow.RequestRetryCurrent();
                 return;
             }
-            if (!HeartsManager.Instance.CanStartAttempt())
+            if (HeartsManager.Instance == null || !HeartsManager.Instance.CanStartAttempt())
             {
                 if (_stateMachine != null)
                     _stateMachine.SetState(GameState.OutOfHearts);
@@ -243,71 +251,23 @@ namespace CircuitOneStroke.UI
         private void OnWatchAdClicked()
         {
             int levelIndex = levelLoader?.LevelData != null ? Mathf.Max(0, levelLoader.LevelData.levelId - 1) : 0;
-            if (!AdDecisionService.Instance.CanShow(AdPlacement.Rewarded_HeartsRefill, userInitiated: true, levelIndex))
-            {
-                if (GameSettings.DevBypassRewardedOnUnavailable)
-                {
-                    HeartsManager.Instance.RefillFull();
-                    (GameFlowController.Instance ?? FindObjectOfType<GameFlowController>())?.ResumeLastIntent();
-                    return;
-                }
-                else
-                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
-                return;
-            }
-            var service = GetAdService();
-            if (service == null || !service.IsRewardedReady(AdPlacement.Rewarded_HeartsRefill))
-            {
-                if (GameSettings.DevBypassRewardedOnUnavailable)
-                {
-                    HeartsManager.Instance.RefillFull();
-                    (GameFlowController.Instance ?? FindObjectOfType<GameFlowController>())?.ResumeLastIntent();
-                    return;
-                }
-                else
-                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
-                return;
-            }
-            service.ShowRewarded(
-                AdPlacement.Rewarded_HeartsRefill,
-                onRewarded: () =>
-                {
-                    HeartsManager.Instance.RefillFull();
-                    AdDecisionService.Instance.RecordShown(AdPlacement.Rewarded_HeartsRefill);
-                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
-                    if (flow != null)
-                        flow.ResumeLastIntent();
-                    else
-                        TransitionAfterRefill();
-                },
-                onClosed: () =>
-                {
-                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
-                    if (flow != null)
-                        flow.ResumeLastIntent();
-                    else
-                        TransitionAfterRefill();
-                },
-                onFailed: _ =>
-                {
-                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
-                    if (flow != null)
-                        flow.ResumeLastIntent();
-                    else
-                        TransitionAfterRefill();
-                }
-            );
+            HeartsRefillAdFlow.Run(levelIndex, adServiceComponent, TransitionAfterRefill, TransitionAfterRefill);
         }
 
         private void OnNextLevelClicked()
         {
-            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+            var flow = UIServices.GetFlow();
             if (flow != null)
             {
                 flow.RequestNextLevel();
                 return;
             }
-            var service = GetAdService();
+            if (InterstitialTracker.Instance == null || AdDecisionService.Instance == null)
+            {
+                LoadNextLevel();
+                return;
+            }
+            var service = UIServices.GetAdService(adServiceComponent);
             int levelIndex = levelLoader?.LevelData != null ? Mathf.Max(0, levelLoader.LevelData.levelId - 1) : 0;
             var config = AdPlacementConfig.Instance?.GetConfig(AdPlacement.Interstitial_EveryNClears)
                 ?? AdPlacementConfig.GetDefaultConfig(AdPlacement.Interstitial_EveryNClears);
@@ -372,7 +332,10 @@ namespace CircuitOneStroke.UI
 
         private IEnumerator LoadNextLevelWithTransition(IEnumerator loadWork)
         {
-            yield return TransitionManager.Instance.RunTransition(loadWork);
+            if (TransitionManager.Instance != null && loadWork != null)
+                yield return TransitionManager.Instance.RunTransition(loadWork);
+            else if (loadWork != null)
+                yield return loadWork;
             if (_stateMachine != null) _stateMachine.SetState(GameState.Idle);
             RefreshVisibility();
         }
@@ -391,13 +354,5 @@ namespace CircuitOneStroke.UI
             RefreshVisibility();
         }
 
-        private IAdService GetAdService()
-        {
-            if (AdServiceRegistry.Instance != null)
-                return AdServiceRegistry.Instance;
-            if (adServiceComponent != null && adServiceComponent is IAdService s)
-                return s;
-            return FindObjectOfType<AdServiceMock>();
-        }
     }
 }

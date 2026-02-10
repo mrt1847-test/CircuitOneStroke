@@ -36,7 +36,8 @@ namespace CircuitOneStroke.UI
         {
             // TODO: IAP 흐름 호출. 성공 시 GrantNoAds() 호출.
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            PurchaseEntitlements.Instance.GrantNoAds();
+            if (PurchaseEntitlements.Instance != null)
+                PurchaseEntitlements.Instance.GrantNoAds();
 #endif
         }
     }

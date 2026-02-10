@@ -52,9 +52,11 @@ namespace CircuitOneStroke.Core
             if (HapticsManager.Instance != null)
                 HapticsManager.Instance.PulseReject();
             else if (GameSettings.VibrateEnabled)
+            {
 #if UNITY_ANDROID && !UNITY_EDITOR
                 Handheld.Vibrate();
 #endif
+            }
         }
 
         /// <summary>재방문 등 규칙 위반(즉시 실패) 시.</summary>
@@ -64,9 +66,11 @@ namespace CircuitOneStroke.Core
             if (HapticsManager.Instance != null)
                 HapticsManager.Instance.PulseFail();
             else if (GameSettings.VibrateEnabled)
+            {
 #if UNITY_ANDROID && !UNITY_EDITOR
                 Handheld.Vibrate();
 #endif
+            }
         }
 
         /// <summary>클리어 시.</summary>

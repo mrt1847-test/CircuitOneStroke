@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = System.Random;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.Solver;
 

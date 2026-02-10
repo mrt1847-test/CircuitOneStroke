@@ -26,7 +26,7 @@ namespace CircuitOneStroke.UI
         {
             RefreshStatus();
 
-            if (noAdsToggle != null)
+            if (noAdsToggle != null && PurchaseEntitlements.Instance != null)
             {
                 noAdsToggle.isOn = PurchaseEntitlements.Instance.HasNoAds;
                 noAdsToggle.onValueChanged.AddListener(OnNoAdsToggleChanged);
@@ -46,42 +46,46 @@ namespace CircuitOneStroke.UI
 
         private void OnNoAdsToggleChanged(bool isOn)
         {
-            PurchaseEntitlements.Instance.SetNoAds(isOn);
+            if (PurchaseEntitlements.Instance != null)
+                PurchaseEntitlements.Instance.SetNoAds(isOn);
             RefreshStatus();
         }
 
         private void RefreshStatus()
         {
-            if (statusText != null)
-            {
-                var ent = PurchaseEntitlements.Instance;
-                int hearts = HeartsManager.Instance.Hearts;
-                int clears = InterstitialTracker.Instance.LevelsClearedSinceLastInterstitial;
-                statusText.text = $"HasNoAds: {ent.HasNoAds}\nHearts: {hearts}/5\nClears since interstitial: {clears}";
-            }
+            if (statusText == null) return;
+            var ent = PurchaseEntitlements.Instance;
+            int hearts = HeartsManager.Instance != null ? HeartsManager.Instance.Hearts : 0;
+            int clears = InterstitialTracker.Instance != null ? InterstitialTracker.Instance.LevelsClearedSinceLastInterstitial : 0;
+            statusText.text = ent != null
+                ? $"HasNoAds: {ent.HasNoAds}\nHearts: {hearts}/5\nClears since interstitial: {clears}"
+                : $"Hearts: {hearts}/5\nClears: {clears}";
         }
 
         private void OnSimulateLevelClear()
         {
-            InterstitialTracker.Instance.IncrementOnLevelClear();
+            if (InterstitialTracker.Instance != null)
+                InterstitialTracker.Instance.IncrementOnLevelClear();
             RefreshStatus();
         }
 
         private void OnSetHeartsZero()
         {
-            HeartsManager.Instance.SetHearts(0);
+            if (HeartsManager.Instance != null)
+                HeartsManager.Instance.SetHearts(0);
             RefreshStatus();
         }
 
         private void OnRefillHearts()
         {
-            HeartsManager.Instance.RefillFull();
+            if (HeartsManager.Instance != null)
+                HeartsManager.Instance.RefillFull();
             RefreshStatus();
         }
 
         private void OnSimulateFail()
         {
-            var loader = FindObjectOfType<LevelLoader>();
+            var loader = FindFirstObjectByType<LevelLoader>();
             if (loader?.StateMachine != null && loader.StateMachine.State == GameState.Drawing)
                 loader.StateMachine.OnHardFail("debug");
         }
@@ -101,7 +105,7 @@ namespace CircuitOneStroke.UI
 
         private void Update()
         {
-            if (noAdsToggle != null && noAdsToggle.isOn != PurchaseEntitlements.Instance.HasNoAds)
+            if (noAdsToggle != null && PurchaseEntitlements.Instance != null && noAdsToggle.isOn != PurchaseEntitlements.Instance.HasNoAds)
                 noAdsToggle.isOn = PurchaseEntitlements.Instance.HasNoAds;
             RefreshStatus();
         }

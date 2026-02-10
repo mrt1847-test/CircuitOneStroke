@@ -11,7 +11,7 @@ namespace CircuitOneStroke.Editor
         [MenuItem("Circuit One-Stroke/Create Debug Panel")]
         public static void Create()
         {
-            var canvas = Object.FindObjectOfType<Canvas>();
+            var canvas = Object.FindFirstObjectByType<Canvas>();
             if (canvas == null)
             {
                 Debug.LogWarning("No Canvas found. Create a Canvas first.");

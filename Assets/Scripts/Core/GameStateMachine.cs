@@ -87,7 +87,7 @@ namespace CircuitOneStroke.Core
                 HeartsManager.Instance.ConsumeHeart(1);
             }
             SetState(GameState.LevelFailed);
-            var flow = UnityEngine.Object.FindObjectOfType<CircuitOneStroke.Core.GameFlowController>();
+            var flow = UnityEngine.Object.FindFirstObjectByType<CircuitOneStroke.Core.GameFlowController>();
             flow?.OnHardFail(reason);
         }
 
@@ -100,7 +100,7 @@ namespace CircuitOneStroke.Core
                 InterstitialTracker.Instance.IncrementOnLevelClear();
                 SetState(GameState.LevelComplete);
                 SaveClearRecord();
-                var flow = UnityEngine.Object.FindObjectOfType<CircuitOneStroke.Core.GameFlowController>();
+                var flow = UnityEngine.Object.FindFirstObjectByType<CircuitOneStroke.Core.GameFlowController>();
                 flow?.OnLevelComplete();
             }
             else

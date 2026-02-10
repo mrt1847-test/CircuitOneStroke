@@ -63,6 +63,10 @@ namespace CircuitOneStroke.UI
         private float _pendingExitTime;
         private const int DefaultMaxLevels = 20;
 
+        [Header("Bootstrap")]
+        [Tooltip("First screen shown when the app starts. Puzzle-style: LevelSelect.")]
+        [SerializeField] private Screen initialScreen = Screen.LevelSelect;
+
         [Header("Overlay References")]
         [SerializeField] private GameHUD gameHUDRef;
 
@@ -71,21 +75,35 @@ namespace CircuitOneStroke.UI
             if (screenContainer == null)
                 screenContainer = transform;
             if (gameHUDRef == null)
-                gameHUDRef = FindObjectOfType<GameHUD>();
+                gameHUDRef = FindFirstObjectByType<GameHUD>();
         }
 
         private void Start()
         {
-            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
-            if (flow != null)
-                flow.Boot();
-            else
-                ShowHome();
+            ShowInitialScreen();
+        }
+
+        /// <summary>Bootstrap: show initial screen.</summary>
+        public void ShowInitialScreen()
+        {
+            Show(initialScreen);
+        }
+
+        /// <summary>Show any screen by enum. Used by bootstrap and navigation.</summary>
+        public void Show(Screen screen)
+        {
+            _history.Clear();
+            _outOfHeartsVisible = false;
+            _resultDialogVisible = false;
+            HideAllScreens();
+            SetScreenActive(screen, true);
+            CurrentScreen = screen;
+            OnScreenChanged?.Invoke(CurrentScreen);
         }
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
                 HandleAndroidBack();
         }
 
@@ -107,8 +125,6 @@ namespace CircuitOneStroke.UI
             }
 
             var prefab = GetPrefab(screen);
-            if (prefab == null) return null;
-
             go = Instantiate(prefab, screenContainer);
             go.name = screen.ToString();
             _instantiated[screen] = go;
@@ -136,8 +152,7 @@ namespace CircuitOneStroke.UI
         private void SetScreenActive(Screen screen, bool active)
         {
             var go = GetOrInstantiate(screen);
-            if (go != null)
-                go.SetActive(active);
+            go.SetActive(active);
         }
 
         private void HideAllScreens()
@@ -149,13 +164,7 @@ namespace CircuitOneStroke.UI
 
         public void ShowHome()
         {
-            _history.Clear();
-            _outOfHeartsVisible = false;
-            _resultDialogVisible = false;
-            HideAllScreens();
-            SetScreenActive(Screen.Home, true);
-            CurrentScreen = Screen.Home;
-            OnScreenChanged?.Invoke(CurrentScreen);
+            Show(Screen.Home);
         }
 
         public void ShowLevelSelect()
@@ -176,13 +185,7 @@ namespace CircuitOneStroke.UI
 
         private void DoShowLevelSelect()
         {
-            _history.Clear();
-            _outOfHeartsVisible = false;
-            _resultDialogVisible = false;
-            HideAllScreens();
-            SetScreenActive(Screen.LevelSelect, true);
-            CurrentScreen = Screen.LevelSelect;
-            OnScreenChanged?.Invoke(CurrentScreen);
+            Show(Screen.LevelSelect);
         }
 
         public void ShowGameHUD()
@@ -203,12 +206,7 @@ namespace CircuitOneStroke.UI
 
         private void DoShowGameHUD()
         {
-            _history.Clear();
-            _outOfHeartsVisible = false;
-            HideAllScreens();
-            SetScreenActive(Screen.GameHUD, true);
-            CurrentScreen = Screen.GameHUD;
-            OnScreenChanged?.Invoke(CurrentScreen);
+            Show(Screen.GameHUD);
         }
 
         public void ShowSettings()
@@ -332,7 +330,7 @@ namespace CircuitOneStroke.UI
             }
             if (CurrentScreen == Screen.GameHUD)
             {
-                if (GameSettings.Instance.ConfirmExitFromGame)
+                if (GameSettings.Instance != null && GameSettings.Instance.ConfirmExitFromGame)
                 {
                     if (_pendingExitConfirm && Time.realtimeSinceStartup - _pendingExitTime < 2f)
                     {
@@ -371,7 +369,7 @@ namespace CircuitOneStroke.UI
         /// <summary>Continue/Play: GameFlowController.RequestStartLevel로 위임.</summary>
         public void StartContinue()
         {
-            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+            var flow = UIServices.GetFlow();
             if (flow != null)
             {
                 int last = LevelRecords.LastPlayedLevelId;
@@ -389,7 +387,7 @@ namespace CircuitOneStroke.UI
         /// <summary>GameFlowController 있으면 RequestStartLevel로 위임, 없으면 레거시.</summary>
         public void StartLevel(int levelId)
         {
-            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+            var flow = UIServices.GetFlow();
             if (flow != null)
             {
                 flow.RequestStartLevel(levelId);
@@ -400,7 +398,6 @@ namespace CircuitOneStroke.UI
 
         private void StartLevelLegacy(int levelId)
         {
-            if (levelLoader == null) return;
             LevelRecords.LastPlayedLevelId = levelId;
             IEnumerator work = null;
             if (levelManifest != null)
