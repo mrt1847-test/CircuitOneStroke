@@ -16,7 +16,7 @@ namespace CircuitOneStroke.Core
         }
 
         /// <summary>
-        /// nextNodeId로 이동 시도. Reject=이동 불가, Fail=재방문 등 규칙 위반(즉시 실패), Ok=이동 처리 완료.
+        /// nextNodeId로 이동 시도. Reject=이동 불가(하트 소모 없음), HardFail=재방문 등 규칙 위반(하트 소모), Ok=이동 처리 완료.
         /// </summary>
         public MoveResult TryMoveTo(int nextNodeId)
         {
@@ -39,11 +39,11 @@ namespace CircuitOneStroke.Core
             var node = _runtime.GetNode(nextNodeId);
             if (node == null)
                 return MoveResult.Reject;
-            // 한 붓 안에서 이미 지나간 노드 재방문 = 즉시 Fail (클리어 불가)
+            // 한 붓 안에서 이미 지나간 노드 재방문 = HardFail (클리어 불가, 하트 소모)
             if (_runtime.StrokeContains(nextNodeId))
-                return MoveResult.Fail;
+                return MoveResult.HardFail;
             if (node.nodeType == NodeType.Bulb && _runtime.VisitedBulbs.Contains(nextNodeId))
-                return MoveResult.Fail;
+                return MoveResult.HardFail;
 
             _runtime.CurrentNodeId = nextNodeId;
             _runtime.AddStrokeNode(nextNodeId);

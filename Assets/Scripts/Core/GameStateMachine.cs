@@ -1,15 +1,17 @@
 using System;
 using CircuitOneStroke.Data;
+using CircuitOneStroke.Services;
 
 namespace CircuitOneStroke.Core
 {
-    /// <summary>게임 흐름 상태. Idle→Drawing→Success/Fail.</summary>
+    /// <summary>게임 흐름 상태. Idle→Drawing→LevelComplete/LevelFailed, OutOfHearts.</summary>
     public enum GameState
     {
         Idle,
         Drawing,
-        Success,
-        Fail
+        LevelComplete,
+        LevelFailed,
+        OutOfHearts
     }
 
     /// <summary>
@@ -40,10 +42,15 @@ namespace CircuitOneStroke.Core
             OnStateChanged?.Invoke(State);
         }
 
-        /// <summary>Idle일 때만. nodeId에서 스트로크 시작 → Drawing.</summary>
+        /// <summary>Idle일 때만. nodeId에서 스트로크 시작 → Drawing. CanStartAttempt이 false면 OutOfHearts로 전환.</summary>
         public void StartStroke(int nodeId)
         {
             if (State != GameState.Idle) return;
+            if (!HeartsManager.Instance.CanStartAttempt())
+            {
+                SetState(GameState.OutOfHearts);
+                return;
+            }
             var node = Runtime.GetNode(nodeId);
             if (node == null) return;
 
@@ -60,27 +67,33 @@ namespace CircuitOneStroke.Core
             SetState(GameState.Drawing);
         }
 
-        /// <summary>Drawing일 때만. nextNodeId로 이동 시도. Reject 시 FailMode가 ImmediateFail이면 이쪽에서 EndStroke 호출.</summary>
+        /// <summary>Drawing일 때만. nextNodeId로 이동 시도. Reject는 하트 소모 없음. HardFail은 OnHardFail에서 처리.</summary>
         public MoveResult TryMoveTo(int nextNodeId)
         {
             if (State != GameState.Drawing) return MoveResult.Reject;
-            var result = Validator.TryMoveTo(nextNodeId);
-            if (result == MoveResult.Reject && GameSettings.FailMode == FailFeedbackMode.ImmediateFail)
-                EndStroke();
-            return result;
+            return Validator.TryMoveTo(nextNodeId);
         }
 
-        /// <summary>Drawing일 때만. 스트로크 종료. 전구 모두 방문 시 Success+기록, 아니면 Fail.</summary>
+        /// <summary>Hard Fail 발생 시 즉시 하트 소모 후 LevelFailed 전환. Home/LevelSelect로 회피 불가.</summary>
+        public void OnHardFail(string reason)
+        {
+            if (State != GameState.Drawing) return;
+            HeartsManager.Instance.ConsumeHeart(1);
+            SetState(GameState.LevelFailed);
+        }
+
+        /// <summary>Drawing일 때만. 스트로크 종료. 전구 모두 방문 시 LevelComplete+기록, 아니면 HardFail(하트 소모+LevelFailed).</summary>
         public void EndStroke()
         {
             if (State != GameState.Drawing) return;
             if (Runtime.VisitedBulbs.Count == Runtime.TotalBulbCount)
             {
-                SetState(GameState.Success);
+                InterstitialTracker.Instance.IncrementOnLevelClear();
+                SetState(GameState.LevelComplete);
                 SaveClearRecord();
             }
             else
-                SetState(GameState.Fail);
+                OnHardFail("incomplete");
         }
 
         /// <summary>클리어 시 레벨 클리어 플래그·최단 시간 저장.</summary>

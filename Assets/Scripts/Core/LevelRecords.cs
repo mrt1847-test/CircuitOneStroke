@@ -8,6 +8,7 @@ namespace CircuitOneStroke.Core
         private const string PrefixClear = "CircuitOneStroke_Clear_";
         private const string PrefixTime = "CircuitOneStroke_Time_";
         private const string PrefixPerfect = "CircuitOneStroke_Perfect_";
+        private const string KeyLastPlayed = "CircuitOneStroke_LastPlayedLevel";
 
         /// <summary>해당 레벨 클리어 여부.</summary>
         public static bool IsCleared(int levelId)
@@ -48,6 +49,21 @@ namespace CircuitOneStroke.Core
         {
             PlayerPrefs.SetInt(PrefixPerfect + levelId, 1);
             PlayerPrefs.Save();
+        }
+
+        /// <summary>마지막 플레이한 레벨 ID. Continue용.</summary>
+        public static int LastPlayedLevelId
+        {
+            get => PlayerPrefs.GetInt(KeyLastPlayed, 1);
+            set { PlayerPrefs.SetInt(KeyLastPlayed, value); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>마지막으로 언락된 레벨 (클리어한 최대 ID + 1).</summary>
+        public static int LastUnlockedLevelId(int maxLevelCount)
+        {
+            for (int i = 1; i <= maxLevelCount; i++)
+                if (!IsCleared(i)) return i;
+            return maxLevelCount;
         }
     }
 }

@@ -76,6 +76,7 @@ namespace CircuitOneStroke.Input
         private void Update()
         {
             if (_stateMachine == null || levelLoader?.Runtime == null) return;
+            if (Core.TransitionManager.Instance != null && Core.TransitionManager.Instance.IsTransitioning) return;
 
             if (UnityEngine.Input.touchCount > 0)
             {
@@ -121,7 +122,7 @@ namespace CircuitOneStroke.Input
                 HandleTouchEnd();
         }
 
-        /// <summary>Idle일 때만. 터치 위치에 노드가 있으면 그 노드에서 스트로크 시작.</summary>
+        /// <summary>Idle일 때만. 터치 위치에 노드가 있으면 그 노드에서 스트로크 시작. CanStartAttempt false면 OutOfHearts로 전환.</summary>
         private void HandleTouchStart(Vector3 worldPos)
         {
             if (_stateMachine.State != GameState.Idle) return;
@@ -130,8 +131,11 @@ namespace CircuitOneStroke.Input
             if (nodeId >= 0)
             {
                 _stateMachine.StartStroke(nodeId);
-                _lastCommittedNodeId = nodeId;
-                UpdateNodeVisitedStates();
+                if (_stateMachine.State == GameState.Drawing)
+                {
+                    _lastCommittedNodeId = nodeId;
+                    UpdateNodeVisitedStates();
+                }
             }
         }
 
@@ -185,11 +189,12 @@ namespace CircuitOneStroke.Input
                     if (levelLoader != null && _stateMachine.Runtime.Graph.TryGetEdge(fromNode, bestNeighbor, out var edge))
                         levelLoader.GetEdgeView(edge.id)?.SetRejectFlash(true);
                     Core.GameFeedback.Instance?.PlayReject();
+                    Core.GameFeedback.RequestToast("Invalid move");
                 }
-                else if (result == MoveResult.Fail)
+                else if (result == MoveResult.HardFail)
                 {
                     Core.GameFeedback.Instance?.PlayFail();
-                    _stateMachine.EndStroke();
+                    _stateMachine.OnHardFail("revisit_node");
                 }
             }
         }

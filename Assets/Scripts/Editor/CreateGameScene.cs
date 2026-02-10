@@ -3,15 +3,17 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.UI;
+using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.Editor
 {
     /// <summary>
-    /// 메뉴로 GameScene 한 번에 구성. 카메라·Game(LevelLoader·Nodes·Edges·StrokeRenderer·GameFeedback)·TouchInput·Canvas·HUD 등.
+    /// 메뉴로 GameScene 한 번에 구성. UIRoot(ScreenRoot+Router), Game(LevelLoader), Canvas·HUD 등.
+    /// 앱은 HomeScreen에서 시작.
     /// </summary>
     public static class CreateGameScene
     {
-        /// <summary>Level_1 없으면 생성 후, 씬·오브젝트·프리팹 placeholder·Canvas 구조 생성.</summary>
+        /// <summary>Level_1 없으면 생성 후, 씬·UIRoot·Game·HUD 구성. Create Screen Prefabs 먼저 실행 권장.</summary>
         [MenuItem("Circuit One-Stroke/Create Game Scene")]
         public static void CreateScene()
         {
@@ -23,6 +25,8 @@ namespace CircuitOneStroke.Editor
             if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))
                 AssetDatabase.CreateFolder("Assets", "Prefabs");
 
+            CreateScreenPrefabs.CreateAll();
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             var cam = Object.FindObjectOfType<Camera>();
             if (cam != null)
@@ -30,7 +34,7 @@ namespace CircuitOneStroke.Editor
                 cam.orthographic = true;
                 cam.orthographicSize = 5f;
                 cam.transform.position = new Vector3(0, 0, -10);
-                cam.backgroundColor = new Color(0.15f, 0.15f, 0.2f);
+                cam.backgroundColor = new Color(0.06f, 0.07f, 0.12f, 1f);
             }
 
             var gameRoot = new GameObject("Game");
@@ -74,51 +78,95 @@ namespace CircuitOneStroke.Editor
             so.FindProperty("edgeViewPrefab").objectReferenceValue = edgePrefab;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            var canvas = new GameObject("Canvas");
-            var canvasComp = canvas.AddComponent<Canvas>();
-            canvasComp.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            canvas.AddComponent<GraphicRaycaster>();
+            var adMock = new GameObject("AdServiceMock");
+            adMock.transform.SetParent(gameRoot.transform, false);
+            adMock.AddComponent<CircuitOneStroke.Services.AdServiceMock>();
+
+            var theme = AssetDatabase.LoadAssetAtPath<CircuitOneStrokeTheme>("Assets/UI/Theme/CircuitOneStrokeTheme.asset");
+            var canvas = CreateUIRoot(theme);
+            var screenContainer = canvas.transform.Find("SafeAreaPanel/ScreenRoot/ScreenContainer");
+            if (screenContainer == null) screenContainer = canvas.transform;
 
             var hud = new GameObject("GameHUD");
-            hud.transform.SetParent(canvas.transform, false);
+            hud.transform.SetParent(screenContainer, false);
+            hud.SetActive(false);
             var hudRect = hud.AddComponent<RectTransform>();
             hudRect.anchorMin = Vector2.zero;
             hudRect.anchorMax = Vector2.one;
             hudRect.offsetMin = hudRect.offsetMax = Vector2.zero;
             var gameHud = hud.AddComponent<CircuitOneStroke.UI.GameHUD>();
 
-            var retryBtn = new GameObject("RetryButton");
-            retryBtn.transform.SetParent(hud.transform, false);
-            var btnRect = retryBtn.AddComponent<RectTransform>();
-            btnRect.anchorMin = new Vector2(0.5f, 0.3f);
-            btnRect.anchorMax = new Vector2(0.5f, 0.3f);
-            btnRect.sizeDelta = new Vector2(200, 50);
-            btnRect.anchoredPosition = Vector2.zero;
-            var btnImage = retryBtn.AddComponent<Image>();
-            btnImage.color = new Color(0.2f, 0.6f, 0.3f);
-            var btn = retryBtn.AddComponent<Button>();
-            var btnText = new GameObject("Text").AddComponent<Text>();
-            btnText.transform.SetParent(retryBtn.transform, false);
-            btnText.text = "Retry";
-            btnText.alignment = TextAnchor.MiddleCenter;
-            btnText.fontSize = 24;
-            var textRect = btnText.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+            var heartsDisplay = new GameObject("HeartsDisplay");
+            heartsDisplay.transform.SetParent(hud.transform, false);
+            var hdRect = heartsDisplay.AddComponent<RectTransform>();
+            hdRect.anchorMin = new Vector2(0, 1);
+            hdRect.anchorMax = new Vector2(0, 1);
+            hdRect.pivot = new Vector2(0, 1);
+            hdRect.anchoredPosition = new Vector2(20, -20);
+            hdRect.sizeDelta = new Vector2(180, 36);
+            var heartBarPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UI/Prefabs/HeartBar.prefab");
+            GameObject heartBarGo = null;
+            if (heartBarPrefab != null)
+            {
+                heartBarGo = (GameObject)PrefabUtility.InstantiatePrefab(heartBarPrefab);
+                heartBarGo.transform.SetParent(heartsDisplay.transform, false);
+                var hbRect = heartBarGo.GetComponent<RectTransform>();
+                if (hbRect != null) { hbRect.anchorMin = Vector2.zero; hbRect.anchorMax = Vector2.one; hbRect.offsetMin = hbRect.offsetMax = Vector2.zero; }
+            }
+            var heartsText = new GameObject("HeartsText").AddComponent<Text>();
+            heartsText.transform.SetParent(heartsDisplay.transform, false);
+            heartsText.text = "5/5";
+            heartsText.fontSize = 20;
+            heartsText.alignment = TextAnchor.MiddleLeft;
+            var htRect = heartsText.GetComponent<RectTransform>();
+            htRect.anchorMin = Vector2.zero;
+            htRect.anchorMax = Vector2.one;
+            htRect.offsetMin = htRect.offsetMax = Vector2.zero;
+            if (heartBarGo != null) heartsText.gameObject.SetActive(false);
+
+            var settingsBtn = CreateButton("⚙", new Color(0.3f, 0.3f, 0.35f));
+            settingsBtn.name = "SettingsButton";
+            settingsBtn.transform.SetParent(hud.transform, false);
+            var sbRect = settingsBtn.GetComponent<RectTransform>();
+            sbRect.anchorMin = new Vector2(1, 1);
+            sbRect.anchorMax = new Vector2(1, 1);
+            sbRect.pivot = new Vector2(1, 1);
+            sbRect.anchoredPosition = new Vector2(-20, -20);
+            sbRect.sizeDelta = new Vector2(48, 48);
+            var sbText = settingsBtn.GetComponentInChildren<Text>();
+            if (sbText != null) sbText.text = "⚙";
+
+            var levelLabel = new GameObject("LevelLabel").AddComponent<Text>();
+            levelLabel.transform.SetParent(hud.transform, false);
+            var llRect = levelLabel.GetComponent<RectTransform>();
+            llRect.anchorMin = new Vector2(0.5f, 1);
+            llRect.anchorMax = new Vector2(0.5f, 1);
+            llRect.pivot = new Vector2(0.5f, 1);
+            llRect.anchoredPosition = new Vector2(0, -20);
+            llRect.sizeDelta = new Vector2(200, 30);
+            levelLabel.text = "Level 1";
+            levelLabel.fontSize = 24;
+            levelLabel.alignment = TextAnchor.MiddleCenter;
 
             var successPanel = new GameObject("SuccessPanel");
             successPanel.transform.SetParent(hud.transform, false);
             var spRect = successPanel.AddComponent<RectTransform>();
             spRect.anchorMin = new Vector2(0.5f, 0.5f);
             spRect.anchorMax = new Vector2(0.5f, 0.5f);
-            spRect.sizeDelta = new Vector2(300, 80);
+            spRect.sizeDelta = new Vector2(320, 120);
             spRect.anchoredPosition = Vector2.zero;
-            var spText = successPanel.AddComponent<Text>();
+            var spText = new GameObject("Text").AddComponent<Text>();
+            spText.transform.SetParent(successPanel.transform, false);
             spText.text = "Clear!";
             spText.fontSize = 36;
             spText.alignment = TextAnchor.MiddleCenter;
+            var spTextRect = spText.GetComponent<RectTransform>();
+            spTextRect.anchorMin = new Vector2(0, 0.5f);
+            spTextRect.anchorMax = new Vector2(1, 1);
+            spTextRect.offsetMin = spTextRect.offsetMax = Vector2.zero;
+            var nextLevelBtn = CreateButton("Next Level", new Color(0.2f, 0.6f, 0.3f));
+            nextLevelBtn.transform.SetParent(successPanel.transform, false);
+            SetRect(nextLevelBtn, 0.2f, 0.1f, 0.8f, 0.45f);
             successPanel.SetActive(false);
 
             var failPanel = new GameObject("FailPanel");
@@ -126,26 +174,169 @@ namespace CircuitOneStroke.Editor
             var fpRect = failPanel.AddComponent<RectTransform>();
             fpRect.anchorMin = new Vector2(0.5f, 0.5f);
             fpRect.anchorMax = new Vector2(0.5f, 0.5f);
-            fpRect.sizeDelta = new Vector2(300, 80);
-            fpRect.anchoredPosition = new Vector2(0, -100);
-            var fpText = failPanel.AddComponent<Text>();
-            fpText.text = "Failed";
-            fpText.fontSize = 36;
+            fpRect.sizeDelta = new Vector2(320, 160);
+            fpRect.anchoredPosition = new Vector2(0, -50);
+            var fpText = new GameObject("Message").AddComponent<Text>();
+            fpText.transform.SetParent(failPanel.transform, false);
+            fpText.text = "Try again?";
+            fpText.fontSize = 28;
             fpText.alignment = TextAnchor.MiddleCenter;
+            var fpTextRect = fpText.GetComponent<RectTransform>();
+            fpTextRect.anchorMin = new Vector2(0, 0.6f);
+            fpTextRect.anchorMax = new Vector2(1, 1);
+            fpTextRect.offsetMin = fpTextRect.offsetMax = Vector2.zero;
+            fpTextRect.anchoredPosition = Vector2.zero;
+
+            var retryBtn = CreateButton("Retry", new Color(0.2f, 0.6f, 0.3f));
+            retryBtn.transform.SetParent(failPanel.transform, false);
+            SetRect(retryBtn, 0.1f, 0.1f, 0.45f, 0.5f);
+            var homeBtn = CreateButton("Home", new Color(0.4f, 0.4f, 0.4f));
+            homeBtn.transform.SetParent(failPanel.transform, false);
+            SetRect(homeBtn, 0.55f, 0.1f, 0.9f, 0.5f);
+            var watchAdBtn = CreateButton("Watch Ad to Refill", new Color(0.8f, 0.5f, 0.1f));
+            watchAdBtn.transform.SetParent(failPanel.transform, false);
+            SetRect(watchAdBtn, 0.1f, 0.1f, 0.45f, 0.5f);
+            watchAdBtn.SetActive(false);
             failPanel.SetActive(false);
+
+            var outOfHeartsPanel = new GameObject("OutOfHeartsPanel");
+            outOfHeartsPanel.transform.SetParent(hud.transform, false);
+            var oohRect = outOfHeartsPanel.AddComponent<RectTransform>();
+            oohRect.anchorMin = Vector2.zero;
+            oohRect.anchorMax = Vector2.one;
+            oohRect.offsetMin = oohRect.offsetMax = Vector2.zero;
+            var oohImage = outOfHeartsPanel.AddComponent<Image>();
+            oohImage.color = new Color(0.1f, 0.1f, 0.15f, 0.9f);
+            var oohText = new GameObject("Message").AddComponent<Text>();
+            oohText.transform.SetParent(outOfHeartsPanel.transform, false);
+            oohText.text = "Out of hearts!\n0/5";
+            oohText.fontSize = 32;
+            oohText.alignment = TextAnchor.MiddleCenter;
+            var oohTextRect = oohText.GetComponent<RectTransform>();
+            oohTextRect.anchorMin = new Vector2(0.2f, 0.6f);
+            oohTextRect.anchorMax = new Vector2(0.8f, 0.9f);
+            oohTextRect.offsetMin = oohTextRect.offsetMax = Vector2.zero;
+            var oohWatchBtn = CreateButton("Watch Ad to Refill", new Color(0.2f, 0.7f, 0.3f));
+            oohWatchBtn.transform.SetParent(outOfHeartsPanel.transform, false);
+            SetRect(oohWatchBtn, 0.25f, 0.3f, 0.75f, 0.45f);
+            var oohBackBtn = CreateButton("Back to Menu", new Color(0.4f, 0.4f, 0.4f));
+            oohBackBtn.transform.SetParent(outOfHeartsPanel.transform, false);
+            SetRect(oohBackBtn, 0.25f, 0.15f, 0.75f, 0.28f);
+            outOfHeartsPanel.SetActive(false);
+
+            var toastGo = new GameObject("ToastUI");
+            toastGo.transform.SetParent(screenContainer, false);
+            var toastRect = toastGo.AddComponent<RectTransform>();
+            toastRect.anchorMin = new Vector2(0.5f, 0.2f);
+            toastRect.anchorMax = new Vector2(0.5f, 0.2f);
+            toastRect.sizeDelta = new Vector2(250, 50);
+            toastRect.anchoredPosition = Vector2.zero;
+            var toastUI = toastGo.AddComponent<CircuitOneStroke.UI.ToastUI>();
+            var toastText = new GameObject("Text").AddComponent<Text>();
+            toastText.transform.SetParent(toastGo.transform, false);
+            toastText.text = "";
+            toastText.fontSize = 20;
+            toastText.alignment = TextAnchor.MiddleCenter;
+            var toastTextRect = toastText.GetComponent<RectTransform>();
+            toastTextRect.anchorMin = Vector2.zero;
+            toastTextRect.anchorMax = Vector2.one;
+            toastTextRect.offsetMin = toastTextRect.offsetMax = Vector2.zero;
+            toastText.gameObject.SetActive(false);
+            var toastSo = new SerializedObject(toastUI);
+            toastSo.FindProperty("toastText").objectReferenceValue = toastText;
+            toastSo.ApplyModifiedPropertiesWithoutUndo();
 
             var hudSo = new SerializedObject(gameHud);
             hudSo.FindProperty("levelLoader").objectReferenceValue = loader;
-            hudSo.FindProperty("retryButton").objectReferenceValue = retryBtn;
+            var manifest = Resources.Load<CircuitOneStroke.Data.LevelManifest>("Levels/GeneratedLevelManifest");
+            if (manifest != null) hudSo.FindProperty("levelManifest").objectReferenceValue = manifest;
+            hudSo.FindProperty("adServiceComponent").objectReferenceValue = adMock.GetComponent<CircuitOneStroke.Services.AdServiceMock>();
+            hudSo.FindProperty("nextLevelButton").objectReferenceValue = nextLevelBtn.GetComponent<Button>();
+            hudSo.FindProperty("heartsDisplay").objectReferenceValue = heartsDisplay;
+            hudSo.FindProperty("heartsText").objectReferenceValue = heartsText;
+            hudSo.FindProperty("heartBar").objectReferenceValue = heartBarGo != null ? heartBarGo.GetComponent<CircuitOneStroke.UI.HeartBar>() : null;
+            hudSo.FindProperty("settingsButton").objectReferenceValue = settingsBtn.GetComponent<Button>();
             hudSo.FindProperty("successPanel").objectReferenceValue = successPanel;
             hudSo.FindProperty("failPanel").objectReferenceValue = failPanel;
+            hudSo.FindProperty("failMessageText").objectReferenceValue = fpText;
+            hudSo.FindProperty("retryButton").objectReferenceValue = retryBtn.GetComponent<Button>();
+            hudSo.FindProperty("homeButton").objectReferenceValue = homeBtn.GetComponent<Button>();
+            hudSo.FindProperty("watchAdButton").objectReferenceValue = watchAdBtn.GetComponent<Button>();
+            hudSo.FindProperty("outOfHeartsPanel").objectReferenceValue = outOfHeartsPanel;
+            hudSo.FindProperty("outOfHeartsWatchAdButton").objectReferenceValue = oohWatchBtn.GetComponent<Button>();
+            hudSo.FindProperty("outOfHeartsBackButton").objectReferenceValue = oohBackBtn.GetComponent<Button>();
+            hudSo.FindProperty("levelLabel").objectReferenceValue = levelLabel;
             hudSo.ApplyModifiedPropertiesWithoutUndo();
 
-            loader.LoadLevel(Resources.Load<CircuitOneStroke.Data.LevelData>("Levels/Level_1"));
+            var router = canvas.GetComponentInChildren<CircuitOneStroke.UI.UIScreenRouter>();
+            if (router != null)
+            {
+                var routerSo = new SerializedObject(router);
+                routerSo.FindProperty("homeScreenPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UI/Screens/HomeScreen.prefab");
+                routerSo.FindProperty("levelSelectScreenPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UI/Screens/LevelSelectScreen.prefab");
+                routerSo.FindProperty("gameHUDScreenInstance").objectReferenceValue = hud;
+                routerSo.FindProperty("settingsScreenPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UI/Screens/SettingsScreen.prefab");
+                routerSo.FindProperty("shopScreenPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UI/Screens/ShopScreen.prefab");
+                routerSo.FindProperty("outOfHeartsScreenPrefab").objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UI/Screens/OutOfHeartsScreen.prefab");
+                routerSo.FindProperty("levelLoader").objectReferenceValue = loader;
+                routerSo.FindProperty("levelManifest").objectReferenceValue = manifest;
+                routerSo.FindProperty("theme").objectReferenceValue = theme;
+                routerSo.ApplyModifiedPropertiesWithoutUndo();
+            }
 
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/GameScene.unity");
             AssetDatabase.Refresh();
-            Debug.Log("Created Assets/Scenes/GameScene.unity - assign Level Data on LevelLoader if needed.");
+            Debug.Log("Created Assets/Scenes/GameScene.unity - app starts on HomeScreen. Run level from Continue/LevelSelect.");
+        }
+
+        private static GameObject CreateUIRoot(CircuitOneStrokeTheme theme)
+        {
+            var canvas = new GameObject("UIRoot");
+            var c = canvas.AddComponent<Canvas>();
+            c.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.AddComponent<GraphicRaycaster>();
+            var scaler = canvas.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            var safeArea = new GameObject("SafeAreaPanel");
+            safeArea.transform.SetParent(canvas.transform, false);
+            var saRect = safeArea.AddComponent<RectTransform>();
+            saRect.anchorMin = Vector2.zero;
+            saRect.anchorMax = Vector2.one;
+            saRect.offsetMin = saRect.offsetMax = Vector2.zero;
+            safeArea.AddComponent<CircuitOneStroke.UI.SafeArea>();
+
+            var screenRoot = new GameObject("ScreenRoot");
+            screenRoot.transform.SetParent(safeArea.transform, false);
+            var srRect = screenRoot.AddComponent<RectTransform>();
+            srRect.anchorMin = Vector2.zero;
+            srRect.anchorMax = Vector2.one;
+            srRect.offsetMin = srRect.offsetMax = Vector2.zero;
+            var srImg = screenRoot.AddComponent<Image>();
+            srImg.color = theme != null ? theme.background : UIStyleConstants.Background;
+            srImg.raycastTarget = true;
+            var srComp = screenRoot.AddComponent<CircuitOneStroke.UI.ScreenRoot>();
+            var srSo = new SerializedObject(srComp);
+            srSo.FindProperty("theme").objectReferenceValue = theme;
+            srSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var container = new GameObject("ScreenContainer");
+            container.transform.SetParent(screenRoot.transform, false);
+            var contRect = container.AddComponent<RectTransform>();
+            contRect.anchorMin = Vector2.zero;
+            contRect.anchorMax = Vector2.one;
+            contRect.offsetMin = contRect.offsetMax = Vector2.zero;
+
+            var routerGo = new GameObject("UIScreenRouter");
+            routerGo.transform.SetParent(canvas.transform, false);
+            var router = routerGo.AddComponent<CircuitOneStroke.UI.UIScreenRouter>();
+            var rSo = new SerializedObject(router);
+            rSo.FindProperty("screenContainer").objectReferenceValue = contRect;
+            rSo.ApplyModifiedPropertiesWithoutUndo();
+
+            return canvas;
         }
 
         private static GameObject CreateNodePrefab()
@@ -177,6 +368,36 @@ namespace CircuitOneStroke.Editor
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/EdgeView.prefab");
             Object.DestroyImmediate(go);
             return prefab;
+        }
+
+        private static GameObject CreateButton(string label, Color color)
+        {
+            var go = new GameObject(label + "Button");
+            var rect = go.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(120, 40);
+            var img = go.AddComponent<Image>();
+            img.color = color;
+            go.AddComponent<Button>();
+            var textGo = new GameObject("Text");
+            textGo.transform.SetParent(go.transform, false);
+            var text = textGo.AddComponent<Text>();
+            text.text = label;
+            text.fontSize = 20;
+            text.alignment = TextAnchor.MiddleCenter;
+            var textRect = textGo.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+            return go;
+        }
+
+        private static void SetRect(GameObject go, float anchorMinX, float anchorMinY, float anchorMaxX, float anchorMaxY)
+        {
+            var rect = go.GetComponent<RectTransform>();
+            if (rect == null) return;
+            rect.anchorMin = new Vector2(anchorMinX, anchorMinY);
+            rect.anchorMax = new Vector2(anchorMaxX, anchorMaxY);
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
 
         private static Sprite CreateCircleSprite()

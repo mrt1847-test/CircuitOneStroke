@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace CircuitOneStroke.Core
@@ -7,6 +8,11 @@ namespace CircuitOneStroke.Core
     /// </summary>
     public class GameFeedback : MonoBehaviour
     {
+        /// <summary>토스트 메시지 표시 요청. 구독 시 Toast UI에서 표시.</summary>
+        public static event Action<string> OnToastRequested;
+
+        /// <summary>토스트 메시지 요청 (예: "Invalid move").</summary>
+        public static void RequestToast(string message) => OnToastRequested?.Invoke(message);
         [SerializeField] private AudioSource audioSource;
         [SerializeField] private AudioClip moveOkClip;
         [SerializeField] private AudioClip rejectClip;

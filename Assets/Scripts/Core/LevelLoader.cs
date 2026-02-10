@@ -1,7 +1,7 @@
+using System.Collections;
 using UnityEngine;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.View;
-using System;
 
 namespace CircuitOneStroke.Core
 {
@@ -53,6 +53,24 @@ namespace CircuitOneStroke.Core
             LoadCurrent();
         }
 
+        /// <summary>지정 LevelData로 교체 후 LoadCurrentCoroutine 실행. TransitionManager용.</summary>
+        public IEnumerator LoadLevelCoroutine(LevelData data)
+        {
+            levelData = data;
+            yield return LoadCurrentCoroutine();
+        }
+
+        /// <summary>Resources/Levels/Level_{levelId} 로드 후 LoadLevelCoroutine 실행.</summary>
+        public IEnumerator LoadLevelCoroutine(int levelId)
+        {
+            var data = Resources.Load<LevelData>($"Levels/Level_{levelId}");
+            if (data != null)
+            {
+                levelData = data;
+                yield return LoadCurrentCoroutine();
+            }
+        }
+
         /// <summary>Resources/Levels/Level_{levelId} 로드 후 적용.</summary>
         public void LoadLevel(int levelId)
         {
@@ -65,19 +83,37 @@ namespace CircuitOneStroke.Core
         public void LoadCurrent()
         {
             if (levelData == null) return;
+            Clear();
+            _runtime = new LevelRuntime();
+            _runtime.Load(levelData);
+            _stateMachine = new GameStateMachine(_runtime);
+            OnStateMachineChanged?.Invoke(_stateMachine);
+            if (strokeRenderer != null) strokeRenderer.Bind(_runtime);
+            SpawnNodes();
+            SpawnEdges();
+        }
+
+        /// <summary>전환용. Yield between phases to prevent frame spikes.</summary>
+        public IEnumerator LoadCurrentCoroutine()
+        {
+            if (levelData == null) yield break;
 
             Clear();
+            yield return null;
 
             _runtime = new LevelRuntime();
             _runtime.Load(levelData);
             _stateMachine = new GameStateMachine(_runtime);
             OnStateMachineChanged?.Invoke(_stateMachine);
-
-            if (strokeRenderer != null)
-                strokeRenderer.Bind(_runtime);
-
+            if (strokeRenderer != null) strokeRenderer.Bind(_runtime);
             SpawnNodes();
+            yield return null;
+
             SpawnEdges();
+            yield return null;
+
+            RefreshNodeViews();
+            yield return null;
         }
 
         /// <summary>기존 노드/엣지 뷰 제거 및 배열 초기화.</summary>

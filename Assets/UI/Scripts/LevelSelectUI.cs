@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using CircuitOneStroke.Core;
@@ -53,14 +54,39 @@ namespace CircuitOneStroke.UI
         private void LoadAndRefresh()
         {
             if (levelLoader == null) { Refresh(); return; }
+            IEnumerator work = null;
             if (levelManifest != null)
             {
-                LevelData data = levelManifest.GetLevel(_currentLevelId - 1);
+                var data = levelManifest.GetLevel(_currentLevelId - 1);
                 if (data != null)
-                    levelLoader.LoadLevel(data);
+                    work = levelLoader.LoadLevelCoroutine(data);
             }
-            else
-                levelLoader.LoadLevel(_currentLevelId);
+            if (work == null)
+                work = levelLoader.LoadLevelCoroutine(_currentLevelId);
+
+            if (work != null && TransitionManager.Instance != null)
+            {
+                StartCoroutine(LoadAndRefreshRoutine(work));
+                return;
+            }
+            if (work != null)
+            {
+                StartCoroutine(FinishLoadAndRefresh(work));
+                return;
+            }
+            levelLoader.LoadLevel(_currentLevelId);
+            Refresh();
+        }
+
+        private IEnumerator LoadAndRefreshRoutine(IEnumerator loadWork)
+        {
+            yield return TransitionManager.Instance.RunTransition(loadWork);
+            Refresh();
+        }
+
+        private IEnumerator FinishLoadAndRefresh(IEnumerator loadWork)
+        {
+            yield return loadWork;
             Refresh();
         }
 
