@@ -36,5 +36,12 @@ namespace CircuitOneStroke.Core
 
         /// <summary>변경 후 호출 권장. PlayerPrefs.Save().</summary>
         public static void Save() => PlayerPrefs.Save();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>광고 미준비 시 보상 무조건 지급 허용. 프로덕션에서는 false.</summary>
+        public static bool DevBypassRewardedOnUnavailable => true;
+#else
+        public static bool DevBypassRewardedOnUnavailable => false;
+#endif
     }
 }

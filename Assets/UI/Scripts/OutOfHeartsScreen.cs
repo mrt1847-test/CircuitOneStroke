@@ -31,17 +31,28 @@ namespace CircuitOneStroke.UI
 
         private void OnWatchAdClicked()
         {
-            if (!AdDecisionService.Instance.CanShow(AdPlacement.Rewarded_HeartsRefill, userInitiated: true, 0))
+            int levelIndex = Mathf.Max(0, LevelRecords.LastPlayedLevelId - 1);
+            if (!AdDecisionService.Instance.CanShow(AdPlacement.Rewarded_HeartsRefill, userInitiated: true, levelIndex))
             {
-                HeartsManager.Instance.RefillFull();
-                _router?.GoBack();
+                if (GameSettings.DevBypassRewardedOnUnavailable)
+                {
+                    HeartsManager.Instance.RefillFull();
+                    (GameFlowController.Instance ?? FindObjectOfType<GameFlowController>())?.ResumeLastIntent();
+                }
+                else
+                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
                 return;
             }
-            var service = adServiceComponent as IAdService ?? FindObjectOfType<AdServiceMock>();
+            var service = AdServiceRegistry.Instance ?? adServiceComponent as IAdService ?? FindObjectOfType<AdServiceMock>();
             if (service == null || !service.IsRewardedReady(AdPlacement.Rewarded_HeartsRefill))
             {
-                HeartsManager.Instance.RefillFull();
-                _router?.GoBack();
+                if (GameSettings.DevBypassRewardedOnUnavailable)
+                {
+                    HeartsManager.Instance.RefillFull();
+                    (GameFlowController.Instance ?? FindObjectOfType<GameFlowController>())?.ResumeLastIntent();
+                }
+                else
+                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
                 return;
             }
             service.ShowRewarded(
@@ -50,9 +61,28 @@ namespace CircuitOneStroke.UI
                 {
                     HeartsManager.Instance.RefillFull();
                     AdDecisionService.Instance.RecordShown(AdPlacement.Rewarded_HeartsRefill);
+                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+                    if (flow != null)
+                        flow.ResumeLastIntent();
+                    else
+                        _router?.GoBack();
                 },
-                onClosed: () => _router?.GoBack(),
-                onFailed: _ => _router?.GoBack()
+                onClosed: () =>
+                {
+                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+                    if (flow != null)
+                        flow.ResumeLastIntent();
+                    else
+                        _router?.GoBack();
+                },
+                onFailed: _ =>
+                {
+                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+                    if (flow != null)
+                        flow.ResumeLastIntent();
+                    else
+                        _router?.GoBack();
+                }
             );
         }
 

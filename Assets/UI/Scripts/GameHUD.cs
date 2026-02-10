@@ -136,6 +136,29 @@ namespace CircuitOneStroke.UI
             router = r;
         }
 
+        public void SetResultDialogVisible(bool visible)
+        {
+            if (!visible)
+            {
+                if (successPanel != null) successPanel.SetActive(false);
+                if (failPanel != null) failPanel.SetActive(false);
+                if (outOfHeartsPanel != null) outOfHeartsPanel.SetActive(false);
+            }
+            else
+            {
+                RefreshVisibility();
+            }
+        }
+
+        public void HideResultAndResetState()
+        {
+            if (successPanel != null) successPanel.SetActive(false);
+            if (failPanel != null) failPanel.SetActive(false);
+            if (_stateMachine != null)
+                _stateMachine.ResetToIdle();
+            RefreshVisibility();
+        }
+
         private void OnSettingsClicked()
         {
             router?.ShowSettings();
@@ -189,9 +212,14 @@ namespace CircuitOneStroke.UI
                 watchAdButton.gameObject.SetActive(!hasHearts);
         }
 
-        /// <summary>재시도 시 CanStartAttempt이면 LoadCurrent(transition), 아니면 OutOfHearts.</summary>
         private void OnRetryClicked()
         {
+            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+            if (flow != null)
+            {
+                flow.RequestRetryCurrent();
+                return;
+            }
             if (!HeartsManager.Instance.CanStartAttempt())
             {
                 if (_stateMachine != null)
@@ -200,13 +228,9 @@ namespace CircuitOneStroke.UI
                 return;
             }
             if (levelLoader != null && TransitionManager.Instance != null)
-            {
                 TransitionManager.Instance.RunTransition(levelLoader.LoadCurrentCoroutine());
-            }
             else if (levelLoader != null)
-            {
                 levelLoader.LoadCurrent();
-            }
             RefreshVisibility();
         }
 
@@ -221,15 +245,27 @@ namespace CircuitOneStroke.UI
             int levelIndex = levelLoader?.LevelData != null ? Mathf.Max(0, levelLoader.LevelData.levelId - 1) : 0;
             if (!AdDecisionService.Instance.CanShow(AdPlacement.Rewarded_HeartsRefill, userInitiated: true, levelIndex))
             {
-                HeartsManager.Instance.RefillFull();
-                TransitionAfterRefill();
+                if (GameSettings.DevBypassRewardedOnUnavailable)
+                {
+                    HeartsManager.Instance.RefillFull();
+                    (GameFlowController.Instance ?? FindObjectOfType<GameFlowController>())?.ResumeLastIntent();
+                    return;
+                }
+                else
+                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
                 return;
             }
             var service = GetAdService();
             if (service == null || !service.IsRewardedReady(AdPlacement.Rewarded_HeartsRefill))
             {
-                HeartsManager.Instance.RefillFull();
-                TransitionAfterRefill();
+                if (GameSettings.DevBypassRewardedOnUnavailable)
+                {
+                    HeartsManager.Instance.RefillFull();
+                    (GameFlowController.Instance ?? FindObjectOfType<GameFlowController>())?.ResumeLastIntent();
+                    return;
+                }
+                else
+                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
                 return;
             }
             service.ShowRewarded(
@@ -238,15 +274,39 @@ namespace CircuitOneStroke.UI
                 {
                     HeartsManager.Instance.RefillFull();
                     AdDecisionService.Instance.RecordShown(AdPlacement.Rewarded_HeartsRefill);
+                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+                    if (flow != null)
+                        flow.ResumeLastIntent();
+                    else
+                        TransitionAfterRefill();
                 },
-                onClosed: () => TransitionAfterRefill(),
-                onFailed: _ => TransitionAfterRefill()
+                onClosed: () =>
+                {
+                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+                    if (flow != null)
+                        flow.ResumeLastIntent();
+                    else
+                        TransitionAfterRefill();
+                },
+                onFailed: _ =>
+                {
+                    var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+                    if (flow != null)
+                        flow.ResumeLastIntent();
+                    else
+                        TransitionAfterRefill();
+                }
             );
         }
 
-        /// <summary>Next Level - N클리어마다 인터스티셜(NoAds 구매 시 비표시).</summary>
         private void OnNextLevelClicked()
         {
+            var flow = GameFlowController.Instance ?? FindObjectOfType<GameFlowController>();
+            if (flow != null)
+            {
+                flow.RequestNextLevel();
+                return;
+            }
             var service = GetAdService();
             int levelIndex = levelLoader?.LevelData != null ? Mathf.Max(0, levelLoader.LevelData.levelId - 1) : 0;
             var config = AdPlacementConfig.Instance?.GetConfig(AdPlacement.Interstitial_EveryNClears)
@@ -254,6 +314,7 @@ namespace CircuitOneStroke.UI
             int n = config.frequencyN <= 0 ? 3 : config.frequencyN;
 
             bool shouldShowInterstitial = InterstitialTracker.Instance.LevelsClearedSinceLastInterstitial >= n &&
+                InterstitialTracker.Instance.CanAttemptInterstitial() &&
                 AdDecisionService.Instance.CanShow(AdPlacement.Interstitial_EveryNClears, userInitiated: false, levelIndex) &&
                 service != null && service.IsInterstitialReady(AdPlacement.Interstitial_EveryNClears);
 
@@ -267,7 +328,11 @@ namespace CircuitOneStroke.UI
                         AdDecisionService.Instance.RecordShown(AdPlacement.Interstitial_EveryNClears);
                         LoadNextLevel();
                     },
-                    onFailed: _ => LoadNextLevel()
+                    onFailed: _ =>
+                    {
+                        InterstitialTracker.Instance.RecordInterstitialFailure();
+                        LoadNextLevel();
+                    }
                 );
             }
             else
@@ -328,6 +393,8 @@ namespace CircuitOneStroke.UI
 
         private IAdService GetAdService()
         {
+            if (AdServiceRegistry.Instance != null)
+                return AdServiceRegistry.Instance;
             if (adServiceComponent != null && adServiceComponent is IAdService s)
                 return s;
             return FindObjectOfType<AdServiceMock>();

@@ -61,8 +61,14 @@ namespace CircuitOneStroke.UI
 
         private void OnContinue()
         {
-            if (_router != null)
-                _router.StartContinue();
+            if (_router == null) return;
+            int last = LevelRecords.LastPlayedLevelId;
+            int max = 20;
+            var manifest = _router.LevelManifest;
+            if (manifest != null) max = manifest.Count;
+            int levelId = last > 0 ? Mathf.Clamp(last, 1, Mathf.Max(1, max)) : LevelRecords.LastUnlockedLevelId(max);
+            if (levelId <= 0) levelId = 1;
+            _router.StartLevel(levelId);
         }
 
         private void OnLevelSelect()

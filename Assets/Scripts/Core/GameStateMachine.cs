@@ -46,6 +46,7 @@ namespace CircuitOneStroke.Core
         public void StartStroke(int nodeId)
         {
             if (State != GameState.Idle) return;
+            _heartConsumedThisAttemptFail = false;
             if (!HeartsManager.Instance.CanStartAttempt())
             {
                 SetState(GameState.OutOfHearts);
@@ -74,12 +75,20 @@ namespace CircuitOneStroke.Core
             return Validator.TryMoveTo(nextNodeId);
         }
 
-        /// <summary>Hard Fail 발생 시 즉시 하트 소모 후 LevelFailed 전환. Home/LevelSelect로 회피 불가.</summary>
+        private bool _heartConsumedThisAttemptFail;
+
+        /// <summary>Hard Fail 발생 시 즉시 하트 소모(1회만) 후 LevelFailed 전환.</summary>
         public void OnHardFail(string reason)
         {
             if (State != GameState.Drawing) return;
-            HeartsManager.Instance.ConsumeHeart(1);
+            if (!_heartConsumedThisAttemptFail)
+            {
+                _heartConsumedThisAttemptFail = true;
+                HeartsManager.Instance.ConsumeHeart(1);
+            }
             SetState(GameState.LevelFailed);
+            var flow = UnityEngine.Object.FindObjectOfType<CircuitOneStroke.Core.GameFlowController>();
+            flow?.OnHardFail(reason);
         }
 
         /// <summary>Drawing일 때만. 스트로크 종료. 전구 모두 방문 시 LevelComplete+기록, 아니면 HardFail(하트 소모+LevelFailed).</summary>
@@ -91,6 +100,8 @@ namespace CircuitOneStroke.Core
                 InterstitialTracker.Instance.IncrementOnLevelClear();
                 SetState(GameState.LevelComplete);
                 SaveClearRecord();
+                var flow = UnityEngine.Object.FindObjectOfType<CircuitOneStroke.Core.GameFlowController>();
+                flow?.OnLevelComplete();
             }
             else
                 OnHardFail("incomplete");
@@ -109,6 +120,7 @@ namespace CircuitOneStroke.Core
         /// <summary>Idle로 되돌림. 재시도 등에서 사용.</summary>
         public void ResetToIdle()
         {
+            _heartConsumedThisAttemptFail = false;
             SetState(GameState.Idle);
         }
     }

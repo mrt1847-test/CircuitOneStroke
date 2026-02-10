@@ -1,15 +1,19 @@
+using System;
 using UnityEngine;
 
 namespace CircuitOneStroke.Services
 {
     /// <summary>
     /// 광고 표시 여부 결정. NoAds, requiresUserOptIn, 쿨다운, minLevel 적용.
+    /// 쿨다운은 PlayerPrefs로 영속화하여 앱 재시작 후에도 유지.
     /// </summary>
     public class AdDecisionService
     {
+        private const string KeyPrefix = "AdDecisionService_LastShow_";
+
         public static AdDecisionService Instance { get; } = new AdDecisionService();
 
-        private readonly System.Collections.Generic.Dictionary<AdPlacement, float> _lastShowTime = new System.Collections.Generic.Dictionary<AdPlacement, float>();
+        private static double UtcNowSeconds => (DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
 
         /// <summary>
         /// placement 광고를 표시해도 되는지.
@@ -32,10 +36,14 @@ namespace CircuitOneStroke.Services
             if (config.requiresUserOptIn && !userInitiated)
                 return false;
 
-            // 3) Cooldown
-            if (config.cooldownSeconds > 0 && _lastShowTime.TryGetValue(placement, out var last) &&
-                Time.time - last < config.cooldownSeconds)
-                return false;
+            // 3) Cooldown (영속화된 timestamp 사용)
+            if (config.cooldownSeconds > 0)
+            {
+                var key = KeyPrefix + placement;
+                var last = PlayerPrefs.GetFloat(key, 0f);
+                if (last > 0 && UtcNowSeconds - last < config.cooldownSeconds)
+                    return false;
+            }
 
             // 4) minLevelIndex
             if (currentLevelIndex < config.minLevelIndex)
@@ -44,10 +52,12 @@ namespace CircuitOneStroke.Services
             return true;
         }
 
-        /// <summary>광고 표시 완료 시 호출. 쿨다운 기록.</summary>
+        /// <summary>광고 표시 완료 시 호출. 쿨다운 기록(PlayerPrefs 영속화).</summary>
         public void RecordShown(AdPlacement placement)
         {
-            _lastShowTime[placement] = Time.time;
+            var key = KeyPrefix + placement;
+            PlayerPrefs.SetFloat(key, (float)UtcNowSeconds);
+            PlayerPrefs.Save();
         }
     }
 }

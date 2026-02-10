@@ -14,6 +14,7 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Transform gridContainer;
         [SerializeField] private GameObject levelCellPrefab;
         [SerializeField] private Button backButton;
+        [SerializeField] private GridLayoutGroup gridLayout;
         [SerializeField] private int columns = 5;
 
         private UIScreenRouter _router;
@@ -26,6 +27,12 @@ namespace CircuitOneStroke.UI
             _router = router;
             _manifest = router.LevelManifest;
             _loader = router.LevelLoader;
+        }
+
+        private void Awake()
+        {
+            if (gridLayout != null)
+                gridLayout.constraintCount = columns;
         }
 
         private void Start()
@@ -51,31 +58,50 @@ namespace CircuitOneStroke.UI
             if (gridContainer == null || levelCellPrefab == null) return;
 
             int maxLevels = _manifest != null ? _manifest.Count : 20;
-            int unlocked = LevelRecords.LastUnlockedLevelId(maxLevels);
 
-            foreach (var c in _cells)
+            if (_cells.Count == maxLevels)
             {
-                if (c != null && c.gameObject != null)
-                    Destroy(c.gameObject);
+                RefreshAllCells(maxLevels);
+                return;
             }
-            _cells.Clear();
 
-            for (int i = 1; i <= maxLevels; i++)
+            if (_cells.Count > maxLevels)
             {
-                int levelId = i;
+                for (int i = _cells.Count - 1; i >= maxLevels; i--)
+                {
+                    if (_cells[i] != null && _cells[i].gameObject != null)
+                        Destroy(_cells[i].gameObject);
+                    _cells.RemoveAt(i);
+                }
+                RefreshAllCells(maxLevels);
+                return;
+            }
+
+            for (int i = _cells.Count; i < maxLevels; i++)
+            {
+                int levelId = i + 1;
                 var cellGo = Instantiate(levelCellPrefab, gridContainer);
                 var cell = cellGo.GetComponent<LevelSelectCell>();
                 if (cell == null)
                     cell = cellGo.AddComponent<LevelSelectCell>();
+                _cells.Add(cell);
+            }
+            RefreshAllCells(maxLevels);
+        }
 
+        private void RefreshAllCells(int maxLevels)
+        {
+            int unlocked = LevelRecords.LastUnlockedLevelId(maxLevels);
+            for (int i = 0; i < _cells.Count; i++)
+            {
+                var cell = _cells[i];
+                if (cell == null) continue;
+                int levelId = i + 1;
                 bool isLocked = levelId > unlocked;
                 bool isCleared = LevelRecords.IsCleared(levelId);
                 float bestTime = LevelRecords.GetBestTime(levelId);
-
-                cell.Setup(levelId, isLocked, isCleared, bestTime);
                 cell.OnClicked = () => OnLevelClicked(levelId);
-
-                _cells.Add(cell);
+                cell.Setup(levelId, isLocked, isCleared, bestTime);
             }
         }
 
@@ -87,7 +113,7 @@ namespace CircuitOneStroke.UI
 
             if (!HeartsManager.Instance.CanStartAttempt())
             {
-                _router?.ShowOutOfHearts();
+                _router?.ShowOutOfHearts(OutOfHeartsContext.FromLevelSelect);
                 return;
             }
 

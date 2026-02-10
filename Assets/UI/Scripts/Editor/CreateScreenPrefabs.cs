@@ -269,6 +269,7 @@ namespace CircuitOneStroke.Editor
             so.FindProperty("gridContainer").objectReferenceValue = gridGo.transform;
             so.FindProperty("levelCellPrefab").objectReferenceValue = cellPrefab;
             so.FindProperty("backButton").objectReferenceValue = backBtn.GetComponent<Button>();
+            so.FindProperty("gridLayout").objectReferenceValue = grid;
             so.FindProperty("columns").intValue = 5;
             so.ApplyModifiedPropertiesWithoutUndo();
 

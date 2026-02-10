@@ -17,7 +17,9 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Toggle noAdsToggle;
         [SerializeField] private Text statusText;
         [SerializeField] private Button simulateLevelClearButton;
+        [SerializeField] private Button simulateFailButton;
         [SerializeField] private Button setHeartsZeroButton;
+        [SerializeField] private Button refillHeartsButton;
         [SerializeField] private Button simulateHeavyLoadButton;
 
         private void Start()
@@ -32,9 +34,12 @@ namespace CircuitOneStroke.UI
 
             if (simulateLevelClearButton != null)
                 simulateLevelClearButton.onClick.AddListener(OnSimulateLevelClear);
-
+            if (simulateFailButton != null)
+                simulateFailButton.onClick.AddListener(OnSimulateFail);
             if (setHeartsZeroButton != null)
                 setHeartsZeroButton.onClick.AddListener(OnSetHeartsZero);
+            if (refillHeartsButton != null)
+                refillHeartsButton.onClick.AddListener(OnRefillHearts);
             if (simulateHeavyLoadButton != null)
                 simulateHeavyLoadButton.onClick.AddListener(OnSimulateHeavyLoad);
         }
@@ -66,6 +71,19 @@ namespace CircuitOneStroke.UI
         {
             HeartsManager.Instance.SetHearts(0);
             RefreshStatus();
+        }
+
+        private void OnRefillHearts()
+        {
+            HeartsManager.Instance.RefillFull();
+            RefreshStatus();
+        }
+
+        private void OnSimulateFail()
+        {
+            var loader = FindObjectOfType<LevelLoader>();
+            if (loader?.StateMachine != null && loader.StateMachine.State == GameState.Drawing)
+                loader.StateMachine.OnHardFail("debug");
         }
 
         private void OnSimulateHeavyLoad()

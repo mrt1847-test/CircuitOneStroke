@@ -82,6 +82,10 @@ namespace CircuitOneStroke.Editor
             adMock.transform.SetParent(gameRoot.transform, false);
             adMock.AddComponent<CircuitOneStroke.Services.AdServiceMock>();
 
+            var flowGo = new GameObject("GameFlowController");
+            flowGo.transform.SetParent(gameRoot.transform, false);
+            var flow = flowGo.AddComponent<CircuitOneStroke.Core.GameFlowController>();
+
             var theme = AssetDatabase.LoadAssetAtPath<CircuitOneStrokeTheme>("Assets/UI/Theme/CircuitOneStrokeTheme.asset");
             var canvas = CreateUIRoot(theme);
             var screenContainer = canvas.transform.Find("SafeAreaPanel/ScreenRoot/ScreenContainer");
@@ -281,8 +285,15 @@ namespace CircuitOneStroke.Editor
                 routerSo.FindProperty("levelLoader").objectReferenceValue = loader;
                 routerSo.FindProperty("levelManifest").objectReferenceValue = manifest;
                 routerSo.FindProperty("theme").objectReferenceValue = theme;
+                routerSo.FindProperty("gameHUDRef").objectReferenceValue = gameHud;
                 routerSo.ApplyModifiedPropertiesWithoutUndo();
             }
+
+            var flowSo = new SerializedObject(flow);
+            flowSo.FindProperty("router").objectReferenceValue = router;
+            flowSo.FindProperty("levelLoader").objectReferenceValue = loader;
+            flowSo.FindProperty("levelManifest").objectReferenceValue = manifest;
+            flowSo.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/GameScene.unity");
             AssetDatabase.Refresh();

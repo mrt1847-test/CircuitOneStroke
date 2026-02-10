@@ -180,13 +180,9 @@ namespace CircuitOneStroke.Core
             return Vector2.zero;
         }
 
-        /// <summary>levelData가 비어 있으면 Level_1 로드 후 LoadCurrent.</summary>
+        /// <summary>levelData는 GameFlowController/RequestStartLevel에서 설정. 자동 로드 없음.</summary>
         private void Start()
         {
-            if (levelData == null)
-                levelData = Resources.Load<LevelData>("Levels/Level_1");
-            if (levelData != null)
-                LoadCurrent();
         }
     }
 }
