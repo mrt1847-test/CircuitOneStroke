@@ -277,6 +277,22 @@ namespace CircuitOneStroke.Solver
             return (uint)((int)gateMask ^ mask);
         }
 
+        private static IEnumerable<int> EnumerateStartNodes(SolverContext ctx, bool requireAllBulbs)
+        {
+            if (requireAllBulbs)
+            {
+                for (int i = 0; i < ctx.N; i++)
+                {
+                    if ((ctx.BulbMask & (1u << i)) != 0)
+                        yield return i;
+                }
+                yield break;
+            }
+
+            for (int i = 0; i < ctx.N; i++)
+                yield return i;
+        }
+
         private static bool GateOpen(SolverContext ctx, uint gateMask, EdgeRef e)
         {
             if (e.GateBit < 0) return true;
@@ -405,8 +421,10 @@ namespace CircuitOneStroke.Solver
             uint goalMask = requireAllBulbs ? ctx.BulbMask : allVisited;
             var path = new List<int>();
 
-            for (int start = 0; start < ctx.N && !ctx.TimedOut; start++)
+            foreach (int start in EnumerateStartNodes(ctx, requireAllBulbs))
             {
+                if (ctx.TimedOut)
+                    break;
                 uint visited = 1u << start;
                 uint gate = ctx.InitialGateMask;
                 if (ctx.SwitchGroupPerNode[start] >= 0)
@@ -487,10 +505,13 @@ namespace CircuitOneStroke.Solver
             ctx.TimeBudgetMs = settings.TimeBudgetMs;
             ctx.CountMemo.Clear();
             uint allVisited = (1u << ctx.N) - 1;
-            uint goalMask = settings.RequireAllBulbsVisited ? ctx.BulbMask : allVisited;
+            bool requireAllBulbs = settings.RequireAllBulbsVisited;
+            uint goalMask = requireAllBulbs ? ctx.BulbMask : allVisited;
 
-            for (int start = 0; start < ctx.N && !ctx.TimedOut; start++)
+            foreach (int start in EnumerateStartNodes(ctx, requireAllBulbs))
             {
+                if (ctx.TimedOut)
+                    break;
                 uint visited = 1u << start;
                 uint gate = ctx.InitialGateMask;
                 if (ctx.SwitchGroupPerNode[start] >= 0)
