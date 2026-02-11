@@ -31,9 +31,11 @@ namespace CircuitOneStroke.UI
         private void ApplySafeArea()
         {
             if (_rect == null) return;
+            float w = Mathf.Max(Screen.width, 1f);
+            float h = Mathf.Max(Screen.height, 1f);
             _lastSafeArea = Screen.safeArea;
-            var anchorMin = new Vector2(_lastSafeArea.xMin / Screen.width, _lastSafeArea.yMin / Screen.height);
-            var anchorMax = new Vector2(_lastSafeArea.xMax / Screen.width, _lastSafeArea.yMax / Screen.height);
+            var anchorMin = new Vector2(_lastSafeArea.xMin / w, _lastSafeArea.yMin / h);
+            var anchorMax = new Vector2(_lastSafeArea.xMax / w, _lastSafeArea.yMax / h);
             _rect.anchorMin = anchorMin;
             _rect.anchorMax = anchorMax;
             _rect.offsetMin = Vector2.zero;

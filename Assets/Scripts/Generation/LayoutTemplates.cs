@@ -60,7 +60,7 @@ namespace CircuitOneStroke.Generation
                     list.Add(new LayoutTemplate { name = "TwoClusters10", nodeCount = 10, slots = TwoClusters(10) });
                     break;
                 default:
-                    if (n >= 5 && n <= 10)
+                    if (n >= 4 && n <= 15)
                         list.Add(new LayoutTemplate { name = "Ring", nodeCount = n, slots = Ring(n) });
                     else if (n >= 16 && n <= 25)
                         list.AddRange(GetLayoutsForNodeCountV2(n));

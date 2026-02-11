@@ -72,10 +72,10 @@ namespace CircuitOneStroke.UI
         public void Boot()
         {
             ShowMainShell(MainTab.Home);
-            bottomNavBar?.Bind(tab => ShowTab(tab, true));
+            bottomNavBar?.Bind(tab => ShowTab(tab));
         }
 
-        public void ShowTab(MainTab tab, bool animate = true)
+        public void ShowTab(MainTab tab)
         {
             CurrentTab = tab;
             if (homeTabView != null) homeTabView.SetActive(tab == MainTab.Home);
@@ -89,7 +89,7 @@ namespace CircuitOneStroke.UI
             CurrentMode = ScreenMode.MainShell;
             if (mainShellRoot != null) mainShellRoot.SetActive(true);
             if (gameRoot != null) gameRoot.SetActive(false);
-            ShowTab(tab, true);
+            ShowTab(tab);
         }
 
         public void RequestStartLevel(int levelId)
@@ -318,7 +318,7 @@ namespace CircuitOneStroke.UI
             }
             if (CurrentTab != MainTab.Home)
             {
-                ShowTab(MainTab.Home, true);
+                ShowTab(MainTab.Home);
                 return;
             }
 #if UNITY_EDITOR

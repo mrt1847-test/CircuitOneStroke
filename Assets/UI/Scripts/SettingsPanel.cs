@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using CircuitOneStroke.Core;
@@ -64,7 +65,7 @@ namespace CircuitOneStroke.UI
             var d = gs.Data;
 
             // Top
-            if (titleText != null) titleText.text = "Settings";
+            if (titleText != null) titleText.text = Localization.Get("settings");
             if (backButton != null) backButton.onClick.AddListener(() =>
             {
                 if (AppRouter.Instance != null) AppRouter.Instance.ShowTab(MainTab.Home);
@@ -107,7 +108,7 @@ namespace CircuitOneStroke.UI
             if (hapticsStrengthDropdown != null)
             {
                 hapticsStrengthDropdown.ClearOptions();
-                hapticsStrengthDropdown.AddOptions(new System.Collections.Generic.List<string> { "Light", "Normal" });
+                hapticsStrengthDropdown.AddOptions(new List<string> { Localization.Get("haptics_light"), Localization.Get("haptics_normal") });
                 hapticsStrengthDropdown.value = d.hapticsStrength;
                 hapticsStrengthDropdown.onValueChanged.AddListener(v => gs.HapticsStrengthValue = (HapticsStrength)v);
             }
@@ -144,14 +145,14 @@ namespace CircuitOneStroke.UI
             if (nodeSizeDropdown != null)
             {
                 nodeSizeDropdown.ClearOptions();
-                nodeSizeDropdown.AddOptions(new System.Collections.Generic.List<string> { "Small", "Normal", "Large" });
+                nodeSizeDropdown.AddOptions(new List<string> { Localization.Get("node_small"), Localization.Get("node_normal"), Localization.Get("node_large") });
                 nodeSizeDropdown.value = d.nodeSize;
                 nodeSizeDropdown.onValueChanged.AddListener(v => gs.NodeSizeValue = (NodeSize)v);
             }
             if (lineThicknessDropdown != null)
             {
                 lineThicknessDropdown.ClearOptions();
-                lineThicknessDropdown.AddOptions(new System.Collections.Generic.List<string> { "Thin", "Normal", "Thick" });
+                lineThicknessDropdown.AddOptions(new List<string> { Localization.Get("line_thin"), Localization.Get("line_normal"), Localization.Get("line_thick") });
                 lineThicknessDropdown.value = d.lineThickness;
                 lineThicknessDropdown.onValueChanged.AddListener(v => gs.LineThicknessValue = (LineThickness)v);
             }
@@ -187,7 +188,7 @@ namespace CircuitOneStroke.UI
 
             // Shop
             if (removeAdsButton != null) removeAdsButton.onClick.AddListener(OnRemoveAds);
-            if (shopNoteText != null) shopNoteText.text = IAPCopyConstants.NoAdsProductDesc;
+            if (shopNoteText != null) shopNoteText.text = Localization.Get("no_ads_desc");
         }
 
         private void UpdateMusicSliderState()
@@ -221,7 +222,7 @@ namespace CircuitOneStroke.UI
         private void OnHowToPlay()
         {
             // TODO: Open Tutorial modal or route to Tutorial screen
-            GameFeedback.RequestToast("How to Play: Draw one continuous path through all bulbs. Switches toggle gates.");
+            GameFeedback.RequestToast(Localization.Get("how_to_play_toast"));
         }
         private void OnPrivacyPolicy()
         {

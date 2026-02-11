@@ -24,7 +24,7 @@ namespace CircuitOneStroke.UI
         private void Start()
         {
             if (noAdsDescriptionText != null)
-                noAdsDescriptionText.text = IAPCopyConstants.NoAdsProductDesc;
+                noAdsDescriptionText.text = Core.Localization.Get("no_ads_desc");
 
             if (noAdsPurchaseButton != null)
                 noAdsPurchaseButton.onClick.AddListener(OnNoAdsPurchaseClicked);

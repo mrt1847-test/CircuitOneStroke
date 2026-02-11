@@ -36,11 +36,14 @@ namespace CircuitOneStroke.Solver
     /// <summary>
     /// Evaluates LevelData with DFS: solvability, solution count, and metrics for level filtering.
     /// State: (currentNodeId, visitedMask, gateMask). Visit-once for all nodes (Bulb + Switch).
+    /// Exact search (full solution count) is used only up to MaxNodesExactSupported; generator uses MonteCarloEvaluator for N up to 25.
     /// </summary>
     public static class LevelSolver
     {
         /// <summary>이 노드 수를 초과하는 레벨은 검증하지 않음. 25까지 지원 (N>12는 예산 평가).</summary>
         public const int MaxNodesSupported = 25;
+        /// <summary>정확한 DFS 해 개수 탐색에 사용하는 상한. 이보다 크면 예산 모드만 사용. Generator는 N up to 25에 MonteCarlo 사용.</summary>
+        public const int MaxNodesExactSupported = 12;
         /// <summary>N>12일 때 예산 모드로 전환하는 노드 수 한계.</summary>
         public const int BudgetedEvaluationThreshold = 12;
 

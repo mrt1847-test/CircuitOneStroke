@@ -221,5 +221,37 @@ namespace CircuitOneStroke.Generation
             }
             return Accept(level.edges, positions, n, maxCrossings, minNodeDistanceScale, maxEdgeLengthCV);
         }
+
+        /// <summary>
+        /// Single score for layout quality (higher = better). Penalizes crossings, low min distance, high edge-length CV.
+        /// </summary>
+        public static float Score(IReadOnlyList<EdgeData> edges, IReadOnlyList<Vector2> positions, int nodeCount)
+        {
+            if (edges == null || positions == null || nodeCount <= 0) return float.MinValue;
+            int crossings = CountCrossings(edges, positions, nodeCount);
+            float minDist = MinNodeDistance(positions, nodeCount);
+            float avgLen = AverageEdgeLength(edges, positions);
+            float cv = EdgeLengthCV(edges, positions);
+            if (avgLen < 0.01f) avgLen = 1f;
+            float distScore = minDist / Mathf.Max(0.25f, avgLen * MinNodeDistanceScaleDefault);
+            float score = 100f - crossings * 30f + distScore * 20f - cv * 40f;
+            return score;
+        }
+
+        /// <summary>
+        /// Score for LevelData. Higher = better layout.
+        /// </summary>
+        public static float Score(LevelData level)
+        {
+            if (level?.nodes == null || level.edges == null) return float.MinValue;
+            int n = level.nodes.Length;
+            var positions = new Vector2[n];
+            foreach (var nd in level.nodes)
+            {
+                if (nd.id >= 0 && nd.id < n)
+                    positions[nd.id] = nd.pos;
+            }
+            return Score(level.edges, positions, n);
+        }
     }
 }

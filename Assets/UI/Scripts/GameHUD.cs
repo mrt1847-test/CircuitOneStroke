@@ -173,7 +173,7 @@ namespace CircuitOneStroke.UI
         {
             if (AppRouter.Instance != null)
             {
-                AppRouter.Instance.ShowTab(MainTab.Settings, true);
+                AppRouter.Instance.ShowTab(MainTab.Settings);
                 return;
             }
             router?.ShowSettings();

@@ -4,6 +4,9 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.Editor
@@ -47,7 +50,11 @@ namespace CircuitOneStroke.Editor
             {
                 var esGo = new GameObject("EventSystem");
                 esGo.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+                esGo.AddComponent<InputSystemUIInputModule>();
+#else
                 esGo.AddComponent<StandaloneInputModule>();
+#endif
             }
 
             var gameRoot = new GameObject("Game");

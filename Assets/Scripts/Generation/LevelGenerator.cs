@@ -14,17 +14,35 @@ namespace CircuitOneStroke.Generation
         Hard
     }
 
+    /// <summary>Options for base level generation (no diodes/gates unless added later).</summary>
+    public struct GenerationOptions
+    {
+        public bool IncludeSwitch;
+        /// <summary>If &gt; 0, up to this many nodes can be Switch (indices chosen internally).</summary>
+        public int SwitchCount;
+        /// <summary>When true, reject too-linear graphs (e.g. for Normal/Hard).</summary>
+        public bool RequireNormalHardVariety;
+    }
+
     /// <summary>
     /// Generates LevelData from templates with seed-based reproducibility.
+    /// Generator supports N in [4..GeneratorMaxN]; solver exact limit is separate.
     /// </summary>
     public static class LevelGenerator
     {
-        /// <summary>Solver와 동일 제한 공유. 16–25 노드 생성은 BackboneFirstGenerator + LevelSolverV2 사용 (Editor Bake); 여기서는 템플릿 기반 생성 상한.</summary>
-        public const int MaxNodesAllowed = LevelSolver.MaxNodesSupported;
+        /// <summary>Maximum node count for generated levels. Generator is decoupled from LevelSolver.</summary>
+        public const int GeneratorMaxN = 25;
+        /// <summary>Legacy alias; use GeneratorMaxN for new code.</summary>
+        public const int MaxNodesAllowed = GeneratorMaxN;
         private const float MinNodeDistance = 0.5f;
         private const float JitterMaxFractionOfAvgEdge = 0.05f;
         private const int LayoutRetryCount = 25;
         private const int GateTradeoffRetryCount = 15;
+        private const int BaseGraphValidateRetries = 35;
+        private const int AestheticCandidateCount = 15;
+        private const int MaxHubsAllowed = 1;
+        private const int MaxDegreeAllowed = 5;
+        private const float TooLinearFractionThreshold = 0.85f;
 
         /// <summary>
         /// Result of generation; includes level and template name for metadata.
@@ -169,6 +187,262 @@ namespace CircuitOneStroke.Generation
         public static LevelData Generate(DifficultyTier tier, int seed, bool? includeSwitchOverride = null, int maxNodesAllowed = MaxNodesAllowed)
         {
             return GenerateWithMetadata(tier, seed, includeSwitchOverride, maxNodesAllowed).level;
+        }
+
+        private const int MaxBaseTooHardRetries = 6;
+
+        /// <summary>
+        /// Generate a level with N from difficulty profile and diode tuning to hit target success rate band.
+        /// Returns level and metadata; measuredRate and diodeCount for debugging. Start node in evaluation is any Bulb (uniform).
+        /// </summary>
+        public static LevelData GenerateWithSuccessRateTarget(DifficultyTier tier, int seed,
+            out int N, out float measuredRate, out int diodeCount, out int retries)
+        {
+            N = 0;
+            measuredRate = 0f;
+            diodeCount = 0;
+            retries = 0;
+            DifficultyProfile.GetNRange(tier, out int nMin, out int nMax);
+            var rng = new System.Random(seed);
+            for (int r = 0; r < MaxBaseTooHardRetries; r++)
+            {
+                retries = r;
+                int useSeed = seed + r * 10000;
+                int n = nMin + rng.Next(Math.Max(0, nMax - nMin + 1));
+                n = Mathf.Clamp(n, 4, GeneratorMaxN);
+                var opts = new GenerationOptions
+                {
+                    IncludeSwitch = tier != DifficultyTier.Easy,
+                    SwitchCount = tier == DifficultyTier.Easy ? 0 : 1,
+                    RequireNormalHardVariety = tier != DifficultyTier.Easy
+                };
+                LevelData baseLevel = GenerateBase(n, useSeed, opts);
+                if (baseLevel == null)
+                    continue;
+                int trialsK = DifficultyProfile.GetTrialsK(tier, n);
+                float rate = MonteCarloEvaluator.EstimateSuccessRate(baseLevel, trialsK, useSeed + 1);
+                DifficultyProfile.GetTargetRate(tier, out float target, out float band);
+                if (rate < target - band)
+                {
+                    UnityEngine.Object.DestroyImmediate(baseLevel);
+                    continue;
+                }
+                N = n;
+                if (rate >= target - band && rate <= target + band)
+                {
+                    measuredRate = rate;
+                    diodeCount = 0;
+#if UNITY_EDITOR
+                    UnityEngine.Debug.Log($"[LevelGenerator] difficulty={tier}, N={n}, target={target:F2}, measuredRate={rate:F3}, diodeCount=0, seed={useSeed}, retries={r}");
+#endif
+                    return baseLevel;
+                }
+                var tuneResult = DiodeTuner.TuneDiodes(baseLevel, tier, useSeed + 2, trialsK);
+                UnityEngine.Object.DestroyImmediate(baseLevel);
+                measuredRate = tuneResult.measuredRate;
+                diodeCount = tuneResult.diodeCount;
+#if UNITY_EDITOR
+                UnityEngine.Debug.Log($"[LevelGenerator] difficulty={tier}, N={n}, target={target:F2}, measuredRate={tuneResult.measuredRate:F3}, diodeCount={tuneResult.diodeCount}, seed={useSeed}, retries={r}");
+#endif
+                if (tuneResult.level != null && tuneResult.measuredRate > 0f)
+                    return tuneResult.level;
+                if (tuneResult.level != null)
+                    UnityEngine.Object.DestroyImmediate(tuneResult.level);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Generate a base level with exactly N nodes, no diodes, no gates (optional switches via opts).
+        /// Node ids are 0..N-1. Generates up to AestheticCandidateCount valid candidates and returns best by aesthetic score.
+        /// </summary>
+        public static LevelData GenerateBase(int N, int seed, GenerationOptions opts)
+        {
+            N = Mathf.Clamp(N, 4, GeneratorMaxN);
+            LevelData best = null;
+            float bestScore = float.MinValue;
+            int validCount = 0;
+            for (int attempt = 0; attempt < BaseGraphValidateRetries && validCount < AestheticCandidateCount; attempt++)
+            {
+                int useSeed = seed + attempt * 1000;
+                var rngAttempt = new System.Random(useSeed);
+                LevelData level = GenerateBaseInternal(N, useSeed, opts, rngAttempt);
+                if (level != null && ValidateBaseGraph(level, opts.RequireNormalHardVariety))
+                {
+                    validCount++;
+                    float score = AestheticEvaluator.Score(level);
+                    if (score > bestScore)
+                    {
+                        if (best != null) UnityEngine.Object.DestroyImmediate(best);
+                        best = level;
+                        bestScore = score;
+                    }
+                    else
+                        UnityEngine.Object.DestroyImmediate(level);
+                }
+                else if (level != null)
+                    UnityEngine.Object.DestroyImmediate(level);
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Fast sanity checks: connectivity from any Bulb, no isolated nodes, hub cap, optional too-linear reject.
+        /// Ignores diode/gate (base graph is undirected for connectivity).
+        /// </summary>
+        public static bool ValidateBaseGraph(LevelData level, bool requireNormalHardVariety = false)
+        {
+            if (level?.nodes == null || level.edges == null || level.nodes.Length == 0)
+                return false;
+            int n = level.nodes.Length;
+            var adj = new Dictionary<int, List<int>>();
+            for (int i = 0; i < n; i++)
+                adj[i] = new List<int>();
+            foreach (var e in level.edges)
+            {
+                if (e.a >= 0 && e.a < n && e.b >= 0 && e.b < n && e.a != e.b)
+                {
+                    if (!adj[e.a].Contains(e.b)) adj[e.a].Add(e.b);
+                    if (!adj[e.b].Contains(e.a)) adj[e.b].Add(e.a);
+                }
+            }
+            foreach (var node in level.nodes)
+            {
+                if (node.id < 0 || node.id >= n) return false;
+                if (adj[node.id].Count < 1) return false;
+            }
+            int firstBulb = -1;
+            for (int i = 0; i < level.nodes.Length; i++)
+            {
+                if (level.nodes[i].nodeType == NodeType.Bulb) { firstBulb = level.nodes[i].id; break; }
+            }
+            if (firstBulb < 0) return false;
+            var visited = new HashSet<int>();
+            var queue = new Queue<int>();
+            queue.Enqueue(firstBulb);
+            visited.Add(firstBulb);
+            while (queue.Count > 0)
+            {
+                int u = queue.Dequeue();
+                foreach (int v in adj[u])
+                {
+                    if (visited.Add(v)) queue.Enqueue(v);
+                }
+            }
+            if (visited.Count != n) return false;
+            int hubs = 0;
+            int degreeAtMost2 = 0;
+            for (int i = 0; i < n; i++)
+            {
+                int deg = adj[i].Count;
+                if (deg > MaxDegreeAllowed) return false;
+                if (deg >= 5) hubs++;
+                if (deg <= 2) degreeAtMost2++;
+            }
+            if (hubs > MaxHubsAllowed) return false;
+            if (requireNormalHardVariety && n >= 10 && (degreeAtMost2 / (float)n) > TooLinearFractionThreshold)
+                return false;
+            return true;
+        }
+
+        private static LevelData GenerateBaseInternal(int N, int seed, GenerationOptions opts, System.Random rng)
+        {
+            List<(int a, int b)> edgeList = null;
+            string templateName = null;
+            int switchOutputNodeId = -1;
+            LevelTemplate? t = null;
+            for (int i = 0; i < LevelTemplates.All.Length; i++)
+            {
+                if (LevelTemplates.All[i].nodeCount == N)
+                {
+                    t = LevelTemplates.All[i];
+                    templateName = t.Value.name;
+                    break;
+                }
+            }
+            if (t.HasValue)
+            {
+                ref LevelTemplate tmpl = ref t.Value;
+                int[] perm = new int[N];
+                for (int i = 0; i < N; i++) perm[i] = i;
+                Shuffle(perm, rng);
+                edgeList = new List<(int a, int b)>();
+                foreach (var (a, b) in tmpl.edges)
+                {
+                    if (a < N && b < N)
+                        edgeList.Add((perm[a], perm[b]));
+                }
+                if (opts.IncludeSwitch && opts.SwitchCount > 0 && tmpl.switchCandidates != null && tmpl.switchCandidates.Count > 0)
+                {
+                    int idx = tmpl.switchCandidates[rng.Next(tmpl.switchCandidates.Count)];
+                    switchOutputNodeId = perm[idx];
+                }
+            }
+            if (edgeList == null)
+            {
+                edgeList = GenerateBaseGraphTopology(N, rng);
+                if (opts.IncludeSwitch && opts.SwitchCount > 0 && N >= 2)
+                    switchOutputNodeId = rng.Next(1, N);
+            }
+            if (edgeList == null || edgeList.Count == 0) return null;
+            int edgeId = 0;
+            var outEdges = new List<EdgeData>();
+            foreach (var (a, b) in edgeList)
+            {
+                outEdges.Add(new EdgeData { id = edgeId++, a = a, b = b });
+            }
+            Vector2[] positions = PlaceNodesWithLayout(N, rng, outEdges);
+            if (positions == null || positions.Length != N)
+                positions = PlaceNodesOnCircleFallback(N, rng);
+            var nodeList = new List<NodeData>();
+            for (int j = 0; j < N; j++)
+            {
+                nodeList.Add(new NodeData
+                {
+                    id = j,
+                    pos = positions[j],
+                    nodeType = (j == switchOutputNodeId) ? NodeType.Switch : NodeType.Bulb,
+                    switchGroupId = (j == switchOutputNodeId) ? 1 : 0
+                });
+            }
+            var level = ScriptableObject.CreateInstance<LevelData>();
+            level.levelId = 0;
+            level.nodes = nodeList.ToArray();
+            level.edges = outEdges.ToArray();
+            return level;
+        }
+
+        private static List<(int a, int b)> GenerateBaseGraphTopology(int N, System.Random rng)
+        {
+            var edgeSet = new HashSet<(int a, int b)>();
+            for (int i = 0; i < N - 1; i++)
+                edgeSet.Add((i, i + 1));
+            int[] degree = new int[N];
+            for (int i = 0; i < N - 1; i++) { degree[i]++; degree[i + 1]++; }
+            int targetExtra = Math.Max(0, (N * 3 / 2) - (N - 1));
+            if (N <= 10) targetExtra = Math.Min(targetExtra, N);
+            int added = 0;
+            int maxAttempts = N * N * 2;
+            for (int a = 0; a < maxAttempts && added < targetExtra; a++)
+            {
+                int i = rng.Next(0, N);
+                int j = rng.Next(0, N);
+                if (Math.Abs(i - j) < 2) continue;
+                int u = Math.Min(i, j);
+                int v = Math.Max(i, j);
+                if (edgeSet.Contains((u, v))) continue;
+                if (degree[u] >= MaxDegreeAllowed || degree[v] >= MaxDegreeAllowed) continue;
+                int hubCount = 0;
+                for (int k = 0; k < N; k++)
+                    if (degree[k] >= 5) hubCount++;
+                if ((degree[u] + 1 >= 5 || degree[v] + 1 >= 5) && hubCount >= MaxHubsAllowed) continue;
+                edgeSet.Add((u, v));
+                degree[u]++; degree[v]++;
+                added++;
+            }
+            var list = new List<(int a, int b)>();
+            foreach (var e in edgeSet) list.Add(e);
+            return list;
         }
 
         private static void Shuffle(int[] a, System.Random rng)

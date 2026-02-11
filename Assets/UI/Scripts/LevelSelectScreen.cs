@@ -121,7 +121,7 @@ namespace CircuitOneStroke.UI
             RefreshAllCells(maxLevels);
         }
 
-        /// <summary>LevelCell 프리팹에 스크립트가 깨져 있을 때 런타임에 셀 하나 생성. "Missing script" 로그 방지.</summary>
+        /// <summary>LevelCell 프리팹에 스크립트가 깨져 있을 때 런타임에 셀 하나 생성. "Missing script" 로그 방지. 폰트/스프라이트 명시 주입으로 디바이스별 품질 일관.</summary>
         private static GameObject CreateLevelCellRuntime(Transform parent)
         {
             var root = new GameObject("LevelCell");
@@ -130,8 +130,12 @@ namespace CircuitOneStroke.UI
             var rect = root.AddComponent<RectTransform>();
             rect.sizeDelta = new Vector2(100, 100);
 
+            var defaultSprite = GetDefaultCellSprite();
+            var defaultFont = GetDefaultCellFont();
+
             var bg = root.AddComponent<Image>();
             bg.color = UIStyleConstants.PanelBase;
+            if (defaultSprite != null) bg.sprite = defaultSprite;
 
             var btn = root.AddComponent<Button>();
 
@@ -145,6 +149,7 @@ namespace CircuitOneStroke.UI
             numText.text = "1";
             numText.fontSize = 42;
             numText.alignment = TextAnchor.MiddleCenter;
+            if (defaultFont != null) numText.font = defaultFont;
 
             var lockGo = new GameObject("LockOverlay");
             lockGo.transform.SetParent(root.transform, false);
@@ -153,6 +158,7 @@ namespace CircuitOneStroke.UI
             lockRect.anchorMax = Vector2.one;
             lockRect.offsetMin = lockRect.offsetMax = Vector2.zero;
             var lockImg = lockGo.AddComponent<Image>();
+            if (defaultSprite != null) lockImg.sprite = defaultSprite;
             lockImg.color = new Color(0, 0, 0, 0.7f);
             lockImg.raycastTarget = false;
             lockGo.SetActive(false);
@@ -164,6 +170,7 @@ namespace CircuitOneStroke.UI
             checkRect.anchorMax = new Vector2(0.95f, 0.95f);
             checkRect.offsetMin = checkRect.offsetMax = Vector2.zero;
             var checkImg = checkGo.AddComponent<Image>();
+            if (defaultSprite != null) checkImg.sprite = defaultSprite;
             checkImg.color = UIStyleConstants.Primary;
             checkGo.SetActive(false);
 
@@ -177,10 +184,32 @@ namespace CircuitOneStroke.UI
             timeText.text = "";
             timeText.fontSize = 24;
             timeText.alignment = TextAnchor.MiddleCenter;
+            if (defaultFont != null) timeText.font = defaultFont;
 
             var cell = root.AddComponent<LevelSelectCell>();
             cell.AssignReferencesFromChildren();
             return root;
+        }
+
+        private static Font _defaultCellFont;
+        private static Font GetDefaultCellFont()
+        {
+            if (_defaultCellFont != null) return _defaultCellFont;
+            _defaultCellFont = Resources.Load<Font>("DefaultFont");
+            return _defaultCellFont;
+        }
+
+        private static Sprite _defaultCellSprite;
+        private static Sprite GetDefaultCellSprite()
+        {
+            if (_defaultCellSprite != null) return _defaultCellSprite;
+            _defaultCellSprite = Resources.Load<Sprite>("UI/DefaultPanel");
+            if (_defaultCellSprite != null) return _defaultCellSprite;
+            var tex = new Texture2D(1, 1);
+            tex.SetPixel(0, 0, Color.white);
+            tex.Apply();
+            _defaultCellSprite = Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+            return _defaultCellSprite;
         }
 
         private void RefreshAllCells(int maxLevels)

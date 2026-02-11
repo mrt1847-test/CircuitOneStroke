@@ -4,6 +4,9 @@ using UnityEngine.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using CircuitOneStroke.UI;
 using CircuitOneStroke.UI.Theme;
 
@@ -50,7 +53,11 @@ namespace CircuitOneStroke.Editor
                 {
                     var esGo = new GameObject("EventSystem");
                     esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+                    esGo.AddComponent<InputSystemUIInputModule>();
+#else
                     esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+#endif
                 }
                 Debug.Log("Canvas + EventSystem added.");
             }

@@ -105,14 +105,18 @@ CircuitOneStroke/
 
 ## 5. Solver / Generation 연동
 
-- **LevelSolver**: DFS로 풀기 가능 여부·해 개수·메트릭 계산. `MaxNodesSupported`(기본 25, N>12는 예산 평가) 초과 레벨은 미검증.
-- **LevelGenerator**: `MaxNodesAllowed = LevelSolver.MaxNodesSupported`로 동일 상한 유지. 시드·난이도·스위치 포함 여부로 레벨 생성.
+- **LevelSolver**: DFS로 풀기 가능 여부·해 개수·메트릭 계산. `MaxNodesSupported`=25, `MaxNodesExactSupported`=12(정확 탐색 상한). N>12는 예산 평가.
+- **LevelGenerator**: `GeneratorMaxN`=25로 생성 상한(LevelSolver와 분리). `GenerateBase(N, seed, opts)`로 정확 N 노드 베이스 생성, `ValidateBaseGraph` 검사, `GenerateWithSuccessRateTarget`로 난이도별 success rate 밴드·다이오드 튜닝.
+- **MonteCarloEvaluator**: 균일 랜덤 시작(Bulb)·균일 랜덤 수 legal move. N up to 25 난이도 추정 및 DiodeTuner용 엣지 사용 빈도 수집.
+- **DifficultyProfile**: Easy/Normal/Hard별 N 범위·목표 success rate·밴드·trials K.
+- **DiodeTuner**: 베이스 레벨에 다이오드 추가로 목표 success rate 밴드 진입.
 
 ---
 
 ## 6. 리소스·씬·빌드
 
 - **Resources**: 생성 레벨은 `Levels/GeneratedLevelManifest.asset`(LevelBakeTool이 저장)을 로드해 사용. 수동 레벨은 `Levels/Level_N.asset` 또는 씬에서 할당한 LevelManifest 사용.
+- **레벨 셀 폴백(선택)**: LevelCell 프리팹이 깨졌을 때 런타임 생성되는 셀의 품질을 위해 `Resources/DefaultFont`(Font), `Resources/UI/DefaultPanel`(Sprite)를 두면 해당 리소스를 명시 주입. 없으면 Unity 기본 폰트·1x1 흰색 스프라이트로 대체.
 - **Scenes**: GameScene 등은 README의 “씬 구성” 참고.
 - **프리팹**: NodeView(SpriteRenderer + Collider2D + NodeView), EdgeView(LineRenderer + EdgeView), (선택) UI/Prefabs의 Panel/Button/ProgressSlider.
 

@@ -19,6 +19,7 @@ namespace CircuitOneStroke.Input
     /// 스냅/커밋 반경으로 인접 노드만 후보로 두고, commitRadius 안에서만 TryMoveTo 호출.
     /// PointerUp 시 즉시 Fail 하지 않고 Paused; 꼬리 노드 근처에서만 재개 가능.
     /// </summary>
+    /// <remarks>입력 경로: 레거시 Input (GetTouch/GetMouseButton). UI는 EventSystem+StandaloneInputModule. Input System Only 전환 시 새 Input API 또는 PlayerInput으로 이전 필요. See Assets/Docs/INPUT_COMPATIBILITY.md</remarks>
     public class TouchInputController : MonoBehaviour
     {
         [SerializeField] private LevelLoader levelLoader;
@@ -164,7 +165,7 @@ namespace CircuitOneStroke.Input
                     ResumeFromTail();
                 else
                 {
-                    Core.GameFeedback.RequestToast("Continue from the last node");
+                    Core.GameFeedback.RequestToast(Core.Localization.Get("toast_continue_from_tail"));
                 }
                 return;
             }

@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using CircuitOneStroke.Core;
 using CircuitOneStroke.Data;
 
@@ -72,6 +75,7 @@ namespace CircuitOneStroke.UI
         [Header("Overlay References")]
         [SerializeField] private GameHUD gameHUDRef;
 
+        /// <summary>씬에 EventSystem이 없으면 런타임에 생성. Input System 패키지 있으면 InputSystemUIInputModule, 없으면 StandaloneInputModule.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureEventSystem()
         {
@@ -79,7 +83,11 @@ namespace CircuitOneStroke.UI
                 return;
             var go = new GameObject("EventSystem");
             go.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            go.AddComponent<InputSystemUIInputModule>();
+#else
             go.AddComponent<StandaloneInputModule>();
+#endif
         }
 
         private void Awake()
