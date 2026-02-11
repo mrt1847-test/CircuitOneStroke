@@ -92,6 +92,7 @@ namespace CircuitOneStroke.UI
 
         private void Start()
         {
+            if (AppRouter.Instance != null) return;
             ShowInitialScreen();
         }
 

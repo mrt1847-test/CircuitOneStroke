@@ -22,5 +22,13 @@ namespace CircuitOneStroke.Data
                 return null;
             return levels[index];
         }
+
+        /// <summary>다음 레벨 ID (1-based). 다음이 없으면 currentLevelId 반환.</summary>
+        public int GetNextLevelId(int currentLevelId)
+        {
+            if (levels == null || currentLevelId < 1) return currentLevelId;
+            int nextId = currentLevelId + 1;
+            return nextId <= levels.Length ? nextId : currentLevelId;
+        }
     }
 }

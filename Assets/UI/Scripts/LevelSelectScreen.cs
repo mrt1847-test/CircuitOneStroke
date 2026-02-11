@@ -44,11 +44,21 @@ namespace CircuitOneStroke.UI
             if (settingsButton != null)
                 settingsButton.onClick.AddListener(() => _router?.ShowSettings());
 
+            if (_manifest == null && AppRouter.Instance != null)
+            {
+                _manifest = AppRouter.Instance.LevelManifest;
+                _loader = AppRouter.Instance.LevelLoader;
+            }
             BuildGrid();
         }
 
         private void OnEnable()
         {
+            if (_manifest == null && AppRouter.Instance != null)
+            {
+                _manifest = AppRouter.Instance.LevelManifest;
+                _loader = AppRouter.Instance.LevelLoader;
+            }
             BuildGrid();
         }
 
@@ -195,12 +205,21 @@ namespace CircuitOneStroke.UI
             int unlocked = LevelRecords.LastUnlockedLevelId(maxLevels);
             if (levelId > unlocked) return;
 
+            if (AppRouter.Instance != null)
+            {
+                if (HeartsManager.Instance == null || !HeartsManager.Instance.CanStartAttempt())
+                {
+                    AppRouter.Instance.ShowOutOfHearts(OutOfHeartsContext.FromLevelSelect);
+                    return;
+                }
+                AppRouter.Instance.RequestStartLevel(levelId);
+                return;
+            }
             if (HeartsManager.Instance == null || !HeartsManager.Instance.CanStartAttempt())
             {
                 _router?.ShowOutOfHearts(OutOfHeartsContext.FromLevelSelect);
                 return;
             }
-
             _router?.StartLevel(levelId);
         }
     }

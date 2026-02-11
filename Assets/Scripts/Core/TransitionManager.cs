@@ -98,6 +98,23 @@ namespace CircuitOneStroke.Core
             return StartCoroutine(RunTransitionCoroutine(work, options));
         }
 
+        /// <summary>midAction을 전환 중에 실행 (페이드 0.2s, 스피너는 0.3s 초과 시).</summary>
+        public Coroutine Run(System.Action midAction, TransitionOptions options = default)
+        {
+            IEnumerator Job()
+            {
+                midAction?.Invoke();
+                yield return null;
+            }
+            return RunTransition(Job(), options);
+        }
+
+        /// <summary>job 코루틴 실행. 페이드 0.2s in/out, 0.3s 초과 시 스피너.</summary>
+        public Coroutine Run(IEnumerator job, TransitionOptions options = default)
+        {
+            return RunTransition(job, options);
+        }
+
         private IEnumerator RunTransitionCoroutine(IEnumerator work, TransitionOptions options)
         {
             _isTransitioning = true;

@@ -43,6 +43,8 @@ namespace CircuitOneStroke.UI.Theme
         public Sprite iconRetry;
         public Sprite iconLevel;
         public Sprite iconBack;
+        public Sprite iconShop;
+        public Sprite iconHome;
 
         [Header("High Contrast (Accessibility)")]
         public Color highContrastBackground = new Color(0.02f, 0.03f, 0.06f, 1f);

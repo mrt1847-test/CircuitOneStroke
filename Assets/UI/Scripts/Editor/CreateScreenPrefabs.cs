@@ -95,6 +95,8 @@ namespace CircuitOneStroke.Editor
 
             var bg = root.AddComponent<Image>();
             bg.color = theme != null ? theme.panelBase : UIStyleConstants.PanelBase;
+            var panelRole = root.AddComponent<ThemeRole>();
+            panelRole.role = ThemeRole.Role.Panel;
 
             var btn = root.AddComponent<Button>();
 
@@ -165,6 +167,10 @@ namespace CircuitOneStroke.Editor
             var bg = root.AddComponent<Image>();
             bg.color = theme != null ? theme.background : UIStyleConstants.Background;
             bg.raycastTarget = true;
+            var bgRole = root.AddComponent<ThemeRole>();
+            bgRole.role = ThemeRole.Role.Background;
+            var applier = root.AddComponent<ThemeApplier>();
+            applier.Theme = theme;
 
             var home = root.AddComponent<CircuitOneStroke.UI.HomeScreen>();
 
@@ -240,6 +246,10 @@ namespace CircuitOneStroke.Editor
             var bg = root.AddComponent<Image>();
             bg.color = theme != null ? theme.background : UIStyleConstants.Background;
             bg.raycastTarget = true;
+            var bgRole = root.AddComponent<ThemeRole>();
+            bgRole.role = ThemeRole.Role.Background;
+            var applier = root.AddComponent<ThemeApplier>();
+            applier.Theme = theme;
 
             var screen = root.AddComponent<CircuitOneStroke.UI.LevelSelectScreen>();
 
@@ -296,6 +306,10 @@ namespace CircuitOneStroke.Editor
             var bg = root.AddComponent<Image>();
             bg.color = theme != null ? theme.background : UIStyleConstants.Background;
             bg.raycastTarget = true;
+            var bgRole = root.AddComponent<ThemeRole>();
+            bgRole.role = ThemeRole.Role.Background;
+            var applier = root.AddComponent<ThemeApplier>();
+            applier.Theme = theme;
 
             var panel = root.AddComponent<CircuitOneStroke.UI.SettingsPanel>();
 
@@ -542,6 +556,8 @@ namespace CircuitOneStroke.Editor
             bgRect.offsetMin = bgRect.offsetMax = Vector2.zero;
             var bgImg = sliderBg.AddComponent<Image>();
             bgImg.color = theme != null ? theme.panelBorder : UIStyleConstants.PanelBorder;
+            var sbgRole = sliderBg.AddComponent<ThemeRole>();
+            sbgRole.role = ThemeRole.Role.SliderBackground;
             slider.targetGraphic = bgImg;
             var fillArea = new GameObject("Fill Area");
             fillArea.transform.SetParent(sliderGo.transform, false);
@@ -554,6 +570,8 @@ namespace CircuitOneStroke.Editor
             fill.transform.SetParent(fillArea.transform, false);
             var fillImg = fill.AddComponent<Image>();
             fillImg.color = theme != null ? theme.primary : UIStyleConstants.Primary;
+            var fillRole = fill.AddComponent<ThemeRole>();
+            fillRole.role = ThemeRole.Role.SliderFill;
             fill.GetComponent<RectTransform>().anchorMin = Vector2.zero;
             fill.GetComponent<RectTransform>().anchorMax = Vector2.one;
             fill.GetComponent<RectTransform>().offsetMin = fill.GetComponent<RectTransform>().offsetMax = Vector2.zero;
@@ -590,6 +608,8 @@ namespace CircuitOneStroke.Editor
             ddRect.offsetMax = new Vector2(-10, 0);
             var ddImg = ddGo.AddComponent<Image>();
             ddImg.color = theme != null ? theme.panelBase : UIStyleConstants.PanelBase;
+            var ddRole = ddGo.AddComponent<ThemeRole>();
+            ddRole.role = ThemeRole.Role.Panel;
             dropdown = ddGo.AddComponent<Dropdown>();
             var caption = new GameObject("Label");
             caption.transform.SetParent(ddGo.transform, false);
@@ -671,6 +691,10 @@ namespace CircuitOneStroke.Editor
             var bg = root.AddComponent<Image>();
             bg.color = theme != null ? theme.background : UIStyleConstants.Background;
             bg.raycastTarget = true;
+            var bgRole = root.AddComponent<ThemeRole>();
+            bgRole.role = ThemeRole.Role.Background;
+            var applier = root.AddComponent<ThemeApplier>();
+            applier.Theme = theme;
 
             var panel = root.AddComponent<CircuitOneStroke.UI.ShopPanel>();
 
@@ -714,6 +738,10 @@ namespace CircuitOneStroke.Editor
             var bg = root.AddComponent<Image>();
             bg.color = new Color(0.06f, 0.07f, 0.12f, 0.95f);
             bg.raycastTarget = true;
+            var bgRole = root.AddComponent<ThemeRole>();
+            bgRole.role = ThemeRole.Role.Background;
+            var applier = root.AddComponent<ThemeApplier>();
+            applier.Theme = theme;
 
             var screen = root.AddComponent<CircuitOneStroke.UI.OutOfHeartsScreen>();
 
@@ -751,6 +779,8 @@ namespace CircuitOneStroke.Editor
             rect.sizeDelta = new Vector2(200, 56);
             var img = go.AddComponent<Image>();
             img.color = theme != null ? theme.primary : UIStyleConstants.Primary;
+            var role = go.AddComponent<ThemeRole>();
+            role.role = ThemeRole.Role.Button;
             go.AddComponent<Button>();
             var textGo = new GameObject("Text");
             textGo.transform.SetParent(go.transform, false);
@@ -783,6 +813,8 @@ namespace CircuitOneStroke.Editor
             bgRect.offsetMin = bgRect.offsetMax = Vector2.zero;
             var bgImg = bg.AddComponent<Image>();
             bgImg.color = UIStyleConstants.PanelBase;
+            var bgRole = bg.AddComponent<ThemeRole>();
+            bgRole.role = ThemeRole.Role.ToggleBackground;
             toggle.targetGraphic = bgImg;
 
             var labelGo = new GameObject("Label");
@@ -804,6 +836,8 @@ namespace CircuitOneStroke.Editor
             checkRect.offsetMin = checkRect.offsetMax = Vector2.zero;
             var checkImg = checkGo.AddComponent<Image>();
             checkImg.color = UIStyleConstants.Primary;
+            var checkRole = checkGo.AddComponent<ThemeRole>();
+            checkRole.role = ThemeRole.Role.ToggleCheck;
             toggle.graphic = checkImg;
 
             return go;

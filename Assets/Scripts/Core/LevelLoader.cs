@@ -47,6 +47,15 @@ namespace CircuitOneStroke.Core
             return null;
         }
 
+        /// <summary>nodeId에 해당하는 NodeView 반환. 꼬리 하이라이트 등에 사용.</summary>
+        public NodeView GetNodeView(int nodeId)
+        {
+            if (_nodeViews == null) return null;
+            foreach (var nv in _nodeViews)
+                if (nv != null && nv.NodeId == nodeId) return nv;
+            return null;
+        }
+
         /// <summary>지정 LevelData로 교체 후 현재 레벨 재로드.</summary>
         public void LoadLevel(LevelData data)
         {

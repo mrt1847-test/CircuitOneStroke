@@ -57,7 +57,7 @@ namespace CircuitOneStroke.View
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = CreateBridgeSprite();
                 sr.color = markerColor;
-                sr.sortingOrder = 0;
+                sr.sortingOrder = ViewRenderingConstants.OrderEdges;
                 _markers.Add(go);
             }
         }

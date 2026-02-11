@@ -171,6 +171,11 @@ namespace CircuitOneStroke.UI
 
         private void OnSettingsClicked()
         {
+            if (AppRouter.Instance != null)
+            {
+                AppRouter.Instance.ShowTab(MainTab.Settings, true);
+                return;
+            }
             router?.ShowSettings();
         }
 
@@ -190,10 +195,11 @@ namespace CircuitOneStroke.UI
         private void RefreshVisibility()
         {
             var state = levelLoader?.StateMachine?.State ?? GameState.Idle;
-            if (successPanel != null) successPanel.SetActive(state == GameState.LevelComplete);
-            if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(state == GameState.LevelComplete);
-            if (failPanel != null) failPanel.SetActive(state == GameState.LevelFailed);
-            if (outOfHeartsPanel != null) outOfHeartsPanel.SetActive(state == GameState.OutOfHearts);
+            bool useOverlayManager = AppRouter.Instance != null;
+            if (successPanel != null) successPanel.SetActive(!useOverlayManager && state == GameState.LevelComplete);
+            if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(!useOverlayManager && state == GameState.LevelComplete);
+            if (failPanel != null) failPanel.SetActive(!useOverlayManager && state == GameState.LevelFailed);
+            if (outOfHeartsPanel != null) outOfHeartsPanel.SetActive(!useOverlayManager && state == GameState.OutOfHearts);
 
             if (state == GameState.LevelFailed)
             {
@@ -226,6 +232,11 @@ namespace CircuitOneStroke.UI
 
         private void OnRetryClicked()
         {
+            if (AppRouter.Instance != null)
+            {
+                AppRouter.Instance.RequestRetry();
+                return;
+            }
             var flow = UIServices.GetFlow();
             if (flow != null)
             {
@@ -248,6 +259,11 @@ namespace CircuitOneStroke.UI
 
         private void OnHomeClicked()
         {
+            if (AppRouter.Instance != null)
+            {
+                AppRouter.Instance.RequestExitGame();
+                return;
+            }
             router?.ShowHome();
         }
 
@@ -260,6 +276,11 @@ namespace CircuitOneStroke.UI
 
         private void OnNextLevelClicked()
         {
+            if (AppRouter.Instance != null)
+            {
+                AppRouter.Instance.RequestNext();
+                return;
+            }
             var flow = UIServices.GetFlow();
             if (flow != null)
             {

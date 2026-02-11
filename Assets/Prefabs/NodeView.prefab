@@ -143,6 +143,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.View.NodeView
   bulbOffColor: {r: 0.25, g: 0.55, b: 0.95, a: 1}
   bulbOnColor: {r: 0.35, g: 0.65, b: 1, a: 1}
-  switchColor: {r: 0.25, g: 0.55, b: 0.95, a: 1}
-  switchHighlightColor: {r: 0.4, g: 0.7, b: 1, a: 1}
+  switchColor: {r: 0.55, g: 0.45, b: 0.85, a: 1}
+  switchHighlightColor: {r: 0.7, g: 0.6, b: 1, a: 1}
   colliderRadiusScale: 1.35

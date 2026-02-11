@@ -29,7 +29,11 @@ namespace CircuitOneStroke.UI
             if (noAdsPurchaseButton != null)
                 noAdsPurchaseButton.onClick.AddListener(OnNoAdsPurchaseClicked);
             if (backButton != null)
-                backButton.onClick.AddListener(() => _router?.GoBack());
+                backButton.onClick.AddListener(() =>
+                {
+                    if (AppRouter.Instance != null) AppRouter.Instance.ShowTab(MainTab.Home);
+                    else _router?.GoBack();
+                });
         }
 
         private void OnNoAdsPurchaseClicked()

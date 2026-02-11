@@ -15,6 +15,8 @@ namespace CircuitOneStroke.Core
 
         public int MaxHearts { get; } = 5;
         public int Hearts { get; private set; }
+        public int Max => MaxHearts;
+        public int Current => Hearts;
 
         public event Action<int> OnHeartsChanged;
         public event Action OnOutOfHearts;

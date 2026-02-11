@@ -65,7 +65,11 @@ namespace CircuitOneStroke.UI
 
             // Top
             if (titleText != null) titleText.text = "Settings";
-            if (backButton != null) backButton.onClick.AddListener(() => _router?.GoBack());
+            if (backButton != null) backButton.onClick.AddListener(() =>
+            {
+                if (AppRouter.Instance != null) AppRouter.Instance.ShowTab(MainTab.Home);
+                else _router?.GoBack();
+            });
 
             // Audio
             if (musicToggle != null)

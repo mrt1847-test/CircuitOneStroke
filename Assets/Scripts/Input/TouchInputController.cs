@@ -4,9 +4,20 @@ using CircuitOneStroke.View;
 
 namespace CircuitOneStroke.Input
 {
+    /// <summary>입력 측의 그리기 상태. PointerUp 시 Fail 대신 Paused로 전환, 꼬리 노드에서만 재개.</summary>
+    public enum DrawState
+    {
+        Idle,
+        Dragging,
+        Paused,
+        Completed,
+        Failed
+    }
+
     /// <summary>
     /// 터치/에디터 마우스 입력을 받아 스트로크 시작·이동·종료를 GameStateMachine에 전달.
     /// 스냅/커밋 반경으로 인접 노드만 후보로 두고, commitRadius 안에서만 TryMoveTo 호출.
+    /// PointerUp 시 즉시 Fail 하지 않고 Paused; 꼬리 노드 근처에서만 재개 가능.
     /// </summary>
     public class TouchInputController : MonoBehaviour
     {
@@ -17,11 +28,14 @@ namespace CircuitOneStroke.Input
         [Tooltip("스냅 후보 전환 시 요구되는 거리 차이(미터). 커질수록 깜빡임 감소.")]
         [SerializeField] private float snapHysteresisBase = 0.2f;
         [SerializeField] private LayerMask nodeLayer = -1;
+        [Tooltip("Paused 상태에서 이 거리 안에서 터치해야 꼬리 노드에서 재개 가능 (월드 단위).")]
+        [SerializeField] private float resumeRadius = 0.6f;
 
         private GameStateMachine _stateMachine;
         private int _lastCommittedNodeId = -1;
         /// <summary>현재 스냅 후보. 히스테리시스로 전환 시 깜빡임 방지.</summary>
         private int _snapCandidateId = -1;
+        private DrawState _drawState = DrawState.Idle;
 
         private void Start()
         {
@@ -67,6 +81,24 @@ namespace CircuitOneStroke.Input
             {
                 _lastCommittedNodeId = -1;
                 _snapCandidateId = -1;
+                _drawState = DrawState.Idle;
+                HighlightTail(false);
+            }
+            else if (state == GameState.Drawing)
+            {
+                // Dragging은 HandleTouchStart/ResumeFromTail에서 설정. 여기서는 Paused였을 수 있으므로 유지.
+                if (_drawState != DrawState.Paused)
+                    _drawState = DrawState.Dragging;
+            }
+            else if (state == GameState.LevelComplete)
+            {
+                _drawState = DrawState.Completed;
+                HighlightTail(false);
+            }
+            else if (state == GameState.LevelFailed || state == GameState.OutOfHearts)
+            {
+                _drawState = DrawState.Failed;
+                HighlightTail(false);
             }
         }
 
@@ -120,9 +152,26 @@ namespace CircuitOneStroke.Input
                 HandleTouchEnd();
         }
 
-        /// <summary>Idle일 때만. 터치 위치에 노드가 있으면 그 노드에서 스트로크 시작. CanStartAttempt false면 OutOfHearts로 전환.</summary>
+        /// <summary>Idle: 시작 노드에서만 스트로크 시작. Paused: 꼬리 노드 근처에서만 재개, 아니면 토스트.</summary>
         private void HandleTouchStart(Vector3 worldPos)
         {
+            if (_drawState == DrawState.Dragging)
+                return;
+
+            if (_drawState == DrawState.Paused)
+            {
+                if (IsTouchNearTail(worldPos))
+                    ResumeFromTail();
+                else
+                {
+                    Core.GameFeedback.RequestToast("Continue from the last node");
+                }
+                return;
+            }
+
+            if (_drawState == DrawState.Completed || _drawState == DrawState.Failed)
+                return;
+
             if (_stateMachine.State != GameState.Idle) return;
 
             int nodeId = HitNode(worldPos);
@@ -131,16 +180,17 @@ namespace CircuitOneStroke.Input
                 _stateMachine.StartStroke(nodeId);
                 if (_stateMachine.State == GameState.Drawing)
                 {
+                    _drawState = DrawState.Dragging;
                     _lastCommittedNodeId = nodeId;
                     UpdateNodeVisitedStates();
                 }
             }
         }
 
-        /// <summary>Drawing일 때만. 현재 노드 이웃 중 가장 가까운 노드를 스냅 후보로 두고, commitRadius 내면 이동 시도.</summary>
+        /// <summary>Dragging일 때만. 현재 노드 이웃 중 가장 가까운 노드를 스냅 후보로 두고, commitRadius 내면 이동 시도.</summary>
         private void HandleTouchMove(Vector3 worldPos)
         {
-            if (_stateMachine.State != GameState.Drawing) return;
+            if (_stateMachine.State != GameState.Drawing || _drawState != DrawState.Dragging) return;
 
             int current = _stateMachine.Runtime.CurrentNodeId;
             var neighbors = _stateMachine.Runtime.Graph.GetNeighbors(current);
@@ -203,11 +253,17 @@ namespace CircuitOneStroke.Input
             }
         }
 
-        /// <summary>손가락 떼면 스트로크 종료(EndStroke).</summary>
+        /// <summary>손가락 떼면: 클리어 조건이면 EndStroke(성공), 아니면 Paused. 재개는 꼬리 노드에서만 가능.</summary>
         private void HandleTouchEnd()
         {
-            if (_stateMachine.State == GameState.Drawing)
+            if (_drawState != DrawState.Dragging) return;
+            var rt = _stateMachine.Runtime;
+            if (rt != null && rt.VisitedBulbs.Count == rt.TotalBulbCount)
                 _stateMachine.EndStroke();
+            else
+                SetPaused();
+            // TODO: optional subtle toast when lifted mid-edge: "Release on a node to lock the connection"
+            // TODO: optional "Undo 1 step" button or debug shortcut to remove last visited node/edge when Paused
         }
 
         /// <summary>월드 좌표에서 nodeLayer로 OverlapPoint. NodeView가 있으면 해당 NodeId 반환.</summary>
@@ -224,6 +280,41 @@ namespace CircuitOneStroke.Input
         {
             if (levelLoader != null)
                 levelLoader.RefreshNodeViews();
+        }
+
+        private int GetTailNodeId()
+        {
+            return _stateMachine != null && _stateMachine.Runtime != null ? _stateMachine.Runtime.CurrentNodeId : -1;
+        }
+
+        private bool IsTouchNearTail(Vector2 worldPos)
+        {
+            int tailId = GetTailNodeId();
+            if (tailId < 0) return false;
+            Vector2 tailPos = _stateMachine.Runtime.GetNodePosition(tailId);
+            return Vector2.Distance(worldPos, tailPos) <= resumeRadius;
+        }
+
+        private void SetPaused()
+        {
+            _drawState = DrawState.Paused;
+            HighlightTail(true);
+        }
+
+        private void ResumeFromTail()
+        {
+            _drawState = DrawState.Dragging;
+            HighlightTail(false);
+        }
+
+        private void HighlightTail(bool on)
+        {
+            if (levelLoader == null) return;
+            int tailId = GetTailNodeId();
+            if (tailId < 0) return;
+            var nv = levelLoader.GetNodeView(tailId);
+            if (nv != null)
+                nv.SetResumeHighlight(on);
         }
     }
 }

@@ -27,6 +27,8 @@ namespace CircuitOneStroke.Core
 
         public LastIntent LastIntent { get; private set; }
 
+        public void SetLastIntent(LastIntent intent) => LastIntent = intent;
+
         private const int DefaultMaxLevels = 20;
 
         private void Awake()
@@ -154,17 +156,26 @@ namespace CircuitOneStroke.Core
 
         public void OnLevelComplete()
         {
+            var appRouter = UI.AppRouter.Instance;
+            if (appRouter != null) { appRouter.OnLevelComplete(); return; }
             int levelId = levelLoader?.LevelData != null ? levelLoader.LevelData.levelId : 1;
             router?.ShowResultWin(levelId);
         }
 
         public void OnHardFail(string reason)
         {
+            var failReason = reason == "incomplete" ? FailReason.Incomplete
+                : reason == "revisit_node" ? FailReason.RevisitNode
+                : FailReason.Other;
+            var appRouter = UI.AppRouter.Instance;
+            if (appRouter != null) { appRouter.OnHardFail(failReason); return; }
             router?.ShowResultLose();
         }
 
         public void ResumeLastIntent()
         {
+            var appRouter = UI.AppRouter.Instance;
+            if (appRouter != null) { appRouter.ResumeLastIntent(); return; }
             var intent = LastIntent;
             switch (intent.type)
             {
