@@ -35,7 +35,7 @@ namespace CircuitOneStroke.Solver
 
     /// <summary>
     /// Evaluates LevelData with DFS: solvability, solution count, and metrics for level filtering.
-    /// State: (currentNodeId, visitedMask, gateMask). Visit-once for all nodes (Bulb + Switch).
+    /// State: (currentNodeId, visitedMask, gateMask). Visit-once for all nodes; win condition is all Bulb visited.
     /// Exact search (full solution count) is used only up to MaxNodesExactSupported; generator uses MonteCarloEvaluator for N up to 25.
     /// </summary>
     public static class LevelSolver
@@ -65,6 +65,8 @@ namespace CircuitOneStroke.Solver
             public bool[] nodeIsSwitch;
             public int[] switchGroupId;
             public int allVisitedMask;
+            public int allBulbMask;
+            public int[] bulbStartIndices;
             public int initialGateMask;
             /// <summary>gateGroupId → bitmask of gate bits in that group (runtime ToggleGateGroup와 동일 규칙).</summary>
             public Dictionary<int, int> groupIdToMask;
@@ -105,8 +107,9 @@ namespace CircuitOneStroke.Solver
             ctx.branchingAtDepth = new List<float>();
             ctx.deadEndDepths = new List<int>();
 
-            for (int startIndex = 0; startIndex < ctx.n && !ctx.aborted; startIndex++)
+            for (int i = 0; i < ctx.bulbStartIndices.Length && !ctx.aborted; i++)
             {
+                int startIndex = ctx.bulbStartIndices[i];
                 if (ctx.maxMillis > 0 && (Environment.TickCount - ctx.startTicks) >= ctx.maxMillis)
                 {
                     ctx.aborted = true;
@@ -211,12 +214,21 @@ namespace CircuitOneStroke.Solver
 
             var nodeIsSwitch = new bool[n];
             var switchGroupId = new int[n];
+            var bulbStarts = new List<int>();
+            int allBulbMask = 0;
             for (int i = 0; i < n; i++)
             {
                 var node = level.nodes[i];
                 nodeIsSwitch[i] = node.nodeType == NodeType.Switch;
                 switchGroupId[i] = node.switchGroupId;
+                if (node.nodeType == NodeType.Bulb)
+                {
+                    bulbStarts.Add(i);
+                    allBulbMask |= 1 << i;
+                }
             }
+            if (bulbStarts.Count == 0)
+                return null;
 
             int allVisitedMask = (1 << n) - 1;
 
@@ -231,6 +243,8 @@ namespace CircuitOneStroke.Solver
                 nodeIsSwitch = nodeIsSwitch,
                 switchGroupId = switchGroupId,
                 allVisitedMask = allVisitedMask,
+                allBulbMask = allBulbMask,
+                bulbStartIndices = bulbStarts.ToArray(),
                 initialGateMask = initialGateMask,
                 groupIdToMask = groupIdToMask,
                 maxSolutions = maxSolutions,
@@ -255,7 +269,7 @@ namespace CircuitOneStroke.Solver
                 return;
             }
 
-            if (visitedMask == ctx.allVisitedMask)
+            if ((visitedMask & ctx.allBulbMask) == ctx.allBulbMask)
             {
                 ctx.solutionsFound++;
                 return;
@@ -263,7 +277,7 @@ namespace CircuitOneStroke.Solver
 
             if (!ctx.adj.TryGetValue(currentNodeId, out var neighbors))
             {
-                if (visitedMask != ctx.allVisitedMask)
+                if ((visitedMask & ctx.allBulbMask) != ctx.allBulbMask)
                     ctx.deadEndDepths.Add(depth);
                 return;
             }
