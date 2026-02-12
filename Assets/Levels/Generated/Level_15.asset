@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 718eb855e72b6024182f23df6674a530, type: 3}
+  m_Name: Level_15
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.Data.LevelData
+  levelId: 15
+  nodes:
+  - id: 0
+    pos: {x: 1.4896104, y: 1.9327387}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 1
+    pos: {x: 2.137906, y: -0.84223706}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 2
+    pos: {x: 0.06712392, y: -1.8968661}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 3
+    pos: {x: -2.816336, y: -0.85293174}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 4
+    pos: {x: -1.8961254, y: 2.401481}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 5
+    pos: {x: 0.15189272, y: -0.05122422}
+    nodeType: 0
+    switchGroupId: 0
+  edges:
+  - id: 0
+    a: 0
+    b: 1
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 1
+    a: 1
+    b: 2
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 2
+    a: 2
+    b: 3
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 3
+    a: 3
+    b: 4
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 4
+    a: 4
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 5
+    a: 3
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 6
+    a: 1
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 7
+    a: 2
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 8
+    a: 0
+    b: 4
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1

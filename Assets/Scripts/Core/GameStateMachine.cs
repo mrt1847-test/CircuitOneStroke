@@ -54,6 +54,7 @@ namespace CircuitOneStroke.Core
             }
             var node = Runtime.GetNode(nodeId);
             if (node == null) return;
+            if (node.nodeType == NodeType.Blocked) return;
 
             Runtime.CurrentNodeId = nodeId;
             Runtime.ClearStrokeNodes();

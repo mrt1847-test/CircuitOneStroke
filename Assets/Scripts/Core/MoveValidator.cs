@@ -39,6 +39,8 @@ namespace CircuitOneStroke.Core
             var node = _runtime.GetNode(nextNodeId);
             if (node == null)
                 return MoveResult.Reject;
+            if (node.nodeType == NodeType.Blocked)
+                return MoveResult.Reject;
             // 한 붓 안에서 이미 지나간 노드 재방문 = HardFail (클리어 불가, 하트 소모)
             if (_runtime.StrokeContains(nextNodeId))
                 return MoveResult.HardFail;

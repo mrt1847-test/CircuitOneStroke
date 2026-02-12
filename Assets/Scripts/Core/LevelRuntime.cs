@@ -61,6 +61,20 @@ namespace CircuitOneStroke.Core
             _strokeNodeSet?.Add(nodeId);
         }
 
+        /// <summary>마지막 스트로크 노드 제거(Undo 1단계). Drawing 중에만 호출.</summary>
+        public bool RemoveLastStrokeNode()
+        {
+            if (StrokeNodes.Count <= 1) return false;
+            int lastId = StrokeNodes[StrokeNodes.Count - 1];
+            StrokeNodes.RemoveAt(StrokeNodes.Count - 1);
+            _strokeNodeSet?.Remove(lastId);
+            var n = GetNode(lastId);
+            if (n != null && n.nodeType == NodeType.Bulb)
+                VisitedBulbs.Remove(lastId);
+            CurrentNodeId = StrokeNodes.Count > 0 ? StrokeNodes[StrokeNodes.Count - 1] : -1;
+            return true;
+        }
+
         /// <summary>레벨 데이터로 상태 초기화. 노드 캐시·게이트·전구 개수 구성.</summary>
         public void Load(LevelData levelData)
         {

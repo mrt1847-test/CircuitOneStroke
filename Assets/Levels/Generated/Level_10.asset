@@ -1,0 +1,125 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 718eb855e72b6024182f23df6674a530, type: 3}
+  m_Name: Level_10
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.Data.LevelData
+  levelId: 10
+  nodes:
+  - id: 0
+    pos: {x: -1.9685683, y: -0.43533415}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 1
+    pos: {x: -2.6232748, y: -3.0695114}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 2
+    pos: {x: 0.40409, y: 2.053952}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 3
+    pos: {x: -1.5704644, y: 4.009344}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 4
+    pos: {x: 1.8980907, y: -1.468653}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 5
+    pos: {x: 4.0675263, y: -1.2380495}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 6
+    pos: {x: 2.7111664, y: 2.8306391}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 7
+    pos: {x: 1.640515, y: -4.0541778}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 8
+    pos: {x: -4.190513, y: 1.1443815}
+    nodeType: 0
+    switchGroupId: 0
+  edges:
+  - id: 0
+    a: 7
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 1
+    a: 5
+    b: 2
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 2
+    a: 2
+    b: 7
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 3
+    a: 6
+    b: 1
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 4
+    a: 1
+    b: 4
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 5
+    a: 4
+    b: 6
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 6
+    a: 2
+    b: 8
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 7
+    a: 8
+    b: 0
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 8
+    a: 0
+    b: 3
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 9
+    a: 3
+    b: 6
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 10
+    a: 5
+    b: 0
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 11
+    a: 1
+    b: 0
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1

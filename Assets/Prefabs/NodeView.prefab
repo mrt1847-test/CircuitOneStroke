@@ -146,3 +146,5 @@ MonoBehaviour:
   switchColor: {r: 0.55, g: 0.45, b: 0.85, a: 1}
   switchHighlightColor: {r: 0.7, g: 0.6, b: 1, a: 1}
   colliderRadiusScale: 1.35
+  resumePulseScaleAmount: 0.15
+  resumePulseSpeed: 4

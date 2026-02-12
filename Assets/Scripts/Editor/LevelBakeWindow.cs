@@ -10,12 +10,11 @@ using CircuitOneStroke.Solver;
 namespace CircuitOneStroke.Editor
 {
     /// <summary>
-    /// Level Factory v2: Generate 16–25 node levels with SolverV2 + BackboneFirstGenerator,
-    /// score/filter, save to Resources and update LevelManifest. Heavy work in Editor only.
+    /// Level bake window for 16-25 node packs using BackboneFirstGenerator + unified LevelSolver.
     /// </summary>
     public class LevelBakeWindow : EditorWindow
     {
-        private string _packName = "V2Pack";
+        private string _packName = "Pack";
         private int _countToGenerate = 50;
         private int _seed = 1;
         private int _nodeCountMin = 16;
@@ -26,11 +25,10 @@ namespace CircuitOneStroke.Editor
         private int _solverTimeBudgetMs = 150;
         private string _outputFolder = "";
         private int _maxAttemptsPerLevel = 200;
-        private int _decisionPointsMin = 2;
-        private int _decisionPointsMax = 6;
-        private float _avgBranchingMax = 2.3f;
-        private float _avgTrapDepthMin = 3f;
-        private bool _requireTrapDepth = false;
+        private float _earlyBranchingMin = 1.5f;
+        private float _earlyBranchingMax = 2.3f;
+        private float _deadEndDepthMin = 3f;
+        private float _deadEndDepthMax = 9f;
         private int _maxCrossings = 1;
         private Vector2 _scrollPos;
 
@@ -62,7 +60,7 @@ namespace CircuitOneStroke.Editor
         private void OnGUI()
         {
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
-            EditorGUILayout.LabelField("Level Bake (Factory v2)", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Level Bake (Unified Solver)", EditorStyles.boldLabel);
             EditorGUILayout.Space(4);
 
             _packName = EditorGUILayout.TextField("Pack Name", _packName);
@@ -88,11 +86,10 @@ namespace CircuitOneStroke.Editor
                 _outputFolder = $"{GeneratedBasePath}/{_packName}";
 
             _maxAttemptsPerLevel = Mathf.Max(1, EditorGUILayout.IntField("Max Attempts Per Level", _maxAttemptsPerLevel));
-            _decisionPointsMin = EditorGUILayout.IntField("Decision Points Min", _decisionPointsMin);
-            _decisionPointsMax = EditorGUILayout.IntField("Decision Points Max", _decisionPointsMax);
-            _avgBranchingMax = EditorGUILayout.FloatField("Avg Branching Max", _avgBranchingMax);
-            _requireTrapDepth = EditorGUILayout.Toggle("Require Avg Trap Depth", _requireTrapDepth);
-            _avgTrapDepthMin = EditorGUILayout.FloatField("Avg Trap Depth Min", _avgTrapDepthMin);
+            _earlyBranchingMin = EditorGUILayout.FloatField("Early Branching Min", _earlyBranchingMin);
+            _earlyBranchingMax = EditorGUILayout.FloatField("Early Branching Max", _earlyBranchingMax);
+            _deadEndDepthMin = EditorGUILayout.FloatField("Dead-end Depth Min", _deadEndDepthMin);
+            _deadEndDepthMax = EditorGUILayout.FloatField("Dead-end Depth Max", _deadEndDepthMax);
             _maxCrossings = EditorGUILayout.IntField("Max Crossings (aesthetics)", _maxCrossings);
 
             EditorGUILayout.Space(8);
@@ -111,21 +108,6 @@ namespace CircuitOneStroke.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        /// <summary>TODO: Optional validation — "switch matters" (freeze gateMask, disable toggles → Unsat or lower count); "diodes contribute" (remove diodes → count&gt;cap or metrics drop).</summary>
-        private bool PassesAcceptance(LevelData level, SolverOutcome outcome)
-        {
-            if (outcome.Status == SolverV2Status.Timeout) return false;
-            if (outcome.Status == SolverV2Status.Unsat) return false;
-            if (outcome.SolutionsFoundCapped < _targetSolutionsMin) return false;
-            if (outcome.SolutionsFoundCapped > _targetSolutionsMax && outcome.SolutionsFoundCapped != _targetSolutionsMax + 1) return false;
-            if (outcome.SolutionsFoundCapped == _targetSolutionsMax + 1) return false; // over cap
-            if (outcome.DecisionPoints < _decisionPointsMin || outcome.DecisionPoints > _decisionPointsMax) return false;
-            if (outcome.AvgBranching > _avgBranchingMax) return false;
-            if (_requireTrapDepth && outcome.AvgTrapDepth >= 0 && outcome.AvgTrapDepth < _avgTrapDepthMin) return false;
-            if (!AestheticEvaluator.Accept(level, _maxCrossings, 0.22f, 0.4f)) return false;
-            return true;
-        }
-
         private void DoBake(bool dryRun)
         {
             _attempted = 0;
@@ -136,16 +118,6 @@ namespace CircuitOneStroke.Editor
             _rejectedTooManySolutions = 0;
             _rejectedMetrics = 0;
             _rejectedAesthetics = 0;
-
-            var settings = new SolverSettings
-            {
-                MaxSolutionsCap = _targetSolutionsMax + 1,
-                TimeBudgetMs = _solverTimeBudgetMs,
-                RequireAllBulbsVisited = true,
-                TreatAllNodesAsUnique = true,
-                ComputeExtraMetrics = true,
-                TrapProbeDepthCap = 20
-            };
 
             var savedLevels = new List<LevelData>();
             int levelIndex = 1;
@@ -168,6 +140,7 @@ namespace CircuitOneStroke.Editor
                         TargetAvgDegreeMax = 3.2f,
                         Seed = baseSeed + i * 1000 + attempt
                     };
+
                     LevelData candidate = null;
                     try
                     {
@@ -178,18 +151,45 @@ namespace CircuitOneStroke.Editor
                         Debug.LogWarning($"Generate failed: {ex.Message}");
                         continue;
                     }
-                    var outcome = LevelSolverV2.Evaluate(candidate, settings);
 
-                    if (outcome.Status == SolverV2Status.Unsat) { _rejectedUnsat++; Object.DestroyImmediate(candidate); continue; }
-                    if (outcome.Status == SolverV2Status.Timeout) { _rejectedTimeout++; Object.DestroyImmediate(candidate); continue; }
-                    if (outcome.SolutionsFoundCapped < _targetSolutionsMin) { _rejectedTooFewSolutions++; Object.DestroyImmediate(candidate); continue; }
-                    if (outcome.SolutionsFoundCapped > _targetSolutionsMax) { _rejectedTooManySolutions++; Object.DestroyImmediate(candidate); continue; }
-                    if (outcome.DecisionPoints < _decisionPointsMin || outcome.DecisionPoints > _decisionPointsMax || outcome.AvgBranching > _avgBranchingMax)
-                    { _rejectedMetrics++; Object.DestroyImmediate(candidate); continue; }
-                    if (_requireTrapDepth && outcome.AvgTrapDepth >= 0 && outcome.AvgTrapDepth < _avgTrapDepthMin)
-                    { _rejectedMetrics++; Object.DestroyImmediate(candidate); continue; }
+                    var result = LevelSolver.Solve(
+                        candidate,
+                        maxSolutions: _targetSolutionsMax + 1,
+                        maxStatesExpanded: LevelSolver.MaxStatesExpandedDefault,
+                        maxMillis: _solverTimeBudgetMs);
+
+                    if (!result.solvableWithinBudget)
+                    {
+                        if (result.status == SolverStatus.BudgetExceeded) _rejectedTimeout++;
+                        else _rejectedUnsat++;
+                        Object.DestroyImmediate(candidate);
+                        continue;
+                    }
+                    if (result.solutionsFoundWithinBudget < _targetSolutionsMin)
+                    {
+                        _rejectedTooFewSolutions++;
+                        Object.DestroyImmediate(candidate);
+                        continue;
+                    }
+                    if (result.solutionsFoundWithinBudget > _targetSolutionsMax)
+                    {
+                        _rejectedTooManySolutions++;
+                        Object.DestroyImmediate(candidate);
+                        continue;
+                    }
+                    if (result.earlyBranching < _earlyBranchingMin || result.earlyBranching > _earlyBranchingMax ||
+                        result.deadEndDepthAvg < _deadEndDepthMin || result.deadEndDepthAvg > _deadEndDepthMax)
+                    {
+                        _rejectedMetrics++;
+                        Object.DestroyImmediate(candidate);
+                        continue;
+                    }
                     if (!AestheticEvaluator.Accept(candidate, _maxCrossings, 0.22f, 0.4f))
-                    { _rejectedAesthetics++; Object.DestroyImmediate(candidate); continue; }
+                    {
+                        _rejectedAesthetics++;
+                        Object.DestroyImmediate(candidate);
+                        continue;
+                    }
 
                     accepted = true;
                     _passed++;
@@ -207,9 +207,9 @@ namespace CircuitOneStroke.Editor
                         Object.DestroyImmediate(candidate);
                     }
                     levelIndex++;
-                    break;
                 }
-                if (!accepted && (i + 1) <= _countToGenerate)
+
+                if (!accepted)
                     Debug.LogWarning($"Could not generate level {i + 1} after {_maxAttemptsPerLevel} attempts.");
             }
 

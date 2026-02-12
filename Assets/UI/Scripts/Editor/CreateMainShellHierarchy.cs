@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UI;
+using CircuitOneStroke.UI;
 using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.Editor
@@ -74,7 +75,8 @@ namespace CircuitOneStroke.Editor
             }
 
             // AppRouter
-            var appRouterGo = canvas.transform.Find("AppRouter");
+            Transform appRouterT = canvas.transform.Find("AppRouter");
+            GameObject appRouterGo = appRouterT != null ? appRouterT.gameObject : null;
             if (appRouterGo == null)
             {
                 appRouterGo = new GameObject("AppRouter");
@@ -163,7 +165,8 @@ namespace CircuitOneStroke.Editor
             return root.transform;
         }
 
-        private static Transform CreateOverlayRoot(Transform parent, CircuitOneStrokeTheme theme)
+        /// <summary>OverlayRoot + OverlayManager 생성. CreateAppScene 등에서 재사용.</summary>
+        public static Transform CreateOverlayRoot(Transform parent, CircuitOneStrokeTheme theme)
         {
             var root = new GameObject("OverlayRoot");
             root.transform.SetParent(parent, false);
@@ -173,7 +176,7 @@ namespace CircuitOneStroke.Editor
             rect.offsetMin = rect.offsetMax = Vector2.zero;
 
             var overlayMgrGo = new GameObject("OverlayManager");
-            overlayMgrGo.transform.SetParent(root, false);
+            overlayMgrGo.transform.SetParent(root.transform, false);
             overlayMgrGo.AddComponent<RectTransform>().anchorMin = Vector2.zero;
             overlayMgrGo.GetComponent<RectTransform>().anchorMax = Vector2.one;
             overlayMgrGo.GetComponent<RectTransform>().offsetMin = overlayMgrGo.GetComponent<RectTransform>().offsetMax = Vector2.zero;

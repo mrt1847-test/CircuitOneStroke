@@ -230,6 +230,7 @@ namespace CircuitOneStroke.UI
 
         private void OnLevelClicked(int levelId)
         {
+            if (AppRouter.DebugAppScene) Debug.Log($"[AppScene] LevelSelectScreen.OnLevelClicked(levelId={levelId}) AppRouter.Instance={AppRouter.Instance != null}, ScreenRouter.Instance={ScreenRouter.Instance != null}");
             int maxLevels = _manifest != null ? _manifest.Count : 20;
             int unlocked = LevelRecords.LastUnlockedLevelId(maxLevels);
             if (levelId > unlocked) return;
@@ -247,6 +248,11 @@ namespace CircuitOneStroke.UI
             if (HeartsManager.Instance == null || !HeartsManager.Instance.CanStartAttempt())
             {
                 _router?.ShowOutOfHearts(OutOfHeartsContext.FromLevelSelect);
+                return;
+            }
+            if (ScreenRouter.Instance != null)
+            {
+                ScreenRouter.Instance.EnterGame(levelId);
                 return;
             }
             _router?.StartLevel(levelId);

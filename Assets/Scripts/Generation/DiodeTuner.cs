@@ -7,14 +7,17 @@ using CircuitOneStroke.Solver;
 namespace CircuitOneStroke.Generation
 {
     /// <summary>
-    /// Tunes diode placement on a base level so Monte Carlo success rate falls within the difficulty band.
-    /// Uses edge traversal frequency from Monte Carlo to pick candidates; adds diodes iteratively if too easy.
+    /// Tunes diode placement to move success rate into tier band while keeping corridor pressure and diode usage healthy.
     /// </summary>
     public static class DiodeTuner
     {
         public const int MaxDiodeSteps = 12;
+        public const int MaxTuneStepsBudget = 80;
         public const int MaxDiodesPerNodeNormal = 2;
         public const int MaxDiodesPerNodeHard = 4;
+        public const float MinDiodeUsageRateMedium = 0.25f;
+        public const float MinDiodeUsageRateHard = 0.40f;
+        private const float CorridorWorsenTolerance = 0.06f;
 
         public struct TuneResult
         {
@@ -24,69 +27,72 @@ namespace CircuitOneStroke.Generation
             public bool inBand;
         }
 
-        /// <summary>
-        /// If base level is too easy, add diodes to bring success rate into band. If too hard, returns null (caller should regenerate base).
-        /// </summary>
         public static TuneResult TuneDiodes(LevelData baseLevel, DifficultyTier tier, int seed, int trialsK)
         {
             var result = new TuneResult { level = baseLevel, measuredRate = 0f, diodeCount = 0, inBand = false };
             if (baseLevel?.nodes == null || baseLevel.edges == null)
                 return result;
 
-            float rate = MonteCarloEvaluator.EstimateSuccessRate(baseLevel, trialsK, seed);
-            result.measuredRate = rate;
             DifficultyProfile.GetTargetRate(tier, out float target, out float band);
-            if (rate >= target - band && rate <= target + band)
+            var baseStats = MonteCarloEvaluator.EvaluateDetailed(baseLevel, trialsK, seed);
+            result.measuredRate = baseStats.successRate;
+            if (baseStats.successRate >= target - band && baseStats.successRate <= target + band)
             {
-                result.inBand = true;
+                result.inBand = CountDiodes(baseLevel) == 0 || baseStats.diodeUsageRate >= MinUsageRate(tier);
                 return result;
             }
-            if (rate < target - band)
+            if (baseStats.successRate < target - band)
                 return result;
 
             int n = baseLevel.nodes.Length;
             int maxPerNode = tier == DifficultyTier.Hard ? MaxDiodesPerNodeHard : MaxDiodesPerNodeNormal;
             var diodeCountAtNode = new int[n];
             var touchedNodes = new HashSet<int>();
+            float baselineCorridorLoad = CorridorLoad(baseStats);
+
             LevelData current = CloneLevel(baseLevel);
             int steps = 0;
-            while (steps < MaxDiodeSteps)
+            while (steps < MaxDiodeSteps && steps < MaxTuneStepsBudget)
             {
-                rate = MonteCarloEvaluator.EstimateSuccessRate(current, trialsK, seed + steps * 1000);
+                var currentStats = MonteCarloEvaluator.EvaluateDetailed(current, trialsK, seed + steps * 1000);
+                float rate = currentStats.successRate;
                 if (rate >= target - band && rate <= target + band)
                 {
                     result.level = current;
                     result.measuredRate = rate;
                     result.diodeCount = CountDiodes(current);
-                    result.inBand = true;
+                    bool usageOk = result.diodeCount == 0 || currentStats.diodeUsageRate >= MinUsageRate(tier);
+                    bool corridorOk = CorridorLoad(currentStats) <= baselineCorridorLoad + CorridorWorsenTolerance;
+                    result.inBand = usageOk && corridorOk;
                     return result;
                 }
                 if (rate < target - band)
                     break;
 
-                MonteCarloEvaluator.RunTrialsWithEdgeCounts(current, trialsK, seed + steps * 1000 + 1, out var edgeCounts);
-                var candidates = new List<(int count, int edgeIndex, int from, int to)>();
+                MonteCarloEvaluator.RunTrialsWithSuccessEdgeCounts(current, trialsK, seed + steps * 1000 + 1, out var edgeCountsSuccess);
+                var candidates = new List<(int score, int edgeIndex)>();
                 for (int ei = 0; ei < current.edges.Length; ei++)
                 {
                     var e = current.edges[ei];
                     if (e.diode != DiodeMode.None) continue;
                     if (diodeCountAtNode[e.a] >= maxPerNode || diodeCountAtNode[e.b] >= maxPerNode) continue;
+
                     int count = 0;
-                    if (edgeCounts.TryGetValue((e.a, e.b), out int c1)) count += c1;
-                    if (edgeCounts.TryGetValue((e.b, e.a), out int c2)) count += c2;
+                    if (edgeCountsSuccess.TryGetValue((e.a, e.b), out int c1)) count += c1;
+                    if (edgeCountsSuccess.TryGetValue((e.b, e.a), out int c2)) count += c2;
                     int penalty = (touchedNodes.Contains(e.a) ? 10000 : 0) + (touchedNodes.Contains(e.b) ? 10000 : 0);
-                    candidates.Add((Math.Max(0, count - penalty), ei, e.a, e.b));
+                    candidates.Add((Math.Max(0, count - penalty), ei));
                 }
                 if (candidates.Count == 0) break;
-                candidates.Sort((a, b) => b.count.CompareTo(a.count));
+                candidates.Sort((a, b) => b.score.CompareTo(a.score));
+
                 bool placed = false;
                 for (int i = 0; i < candidates.Count && !placed; i++)
                 {
                     int ei = candidates[i].edgeIndex;
-                    var edge = current.edges[ei];
-                    float rateBtoA = ApplyDiodeAndMeasure(current, ei, true, trialsK, seed + steps * 1000 + 2 + i * 2);
-                    if (rateBtoA > 0f && rateBtoA >= target - band)
+                    if (TryPlaceDiode(current, ei, DiodeMode.BtoA, trialsK, seed + steps * 1000 + 2 + i * 2, tier, baselineCorridorLoad, target - band, out float rateB))
                     {
+                        var edge = current.edges[ei];
                         edge.diode = DiodeMode.BtoA;
                         diodeCountAtNode[edge.a]++;
                         diodeCountAtNode[edge.b]++;
@@ -94,11 +100,11 @@ namespace CircuitOneStroke.Generation
                         touchedNodes.Add(edge.b);
                         placed = true;
                         steps++;
-                        break;
+                        continue;
                     }
-                    float rateAtoB = ApplyDiodeAndMeasure(current, ei, false, trialsK, seed + steps * 1000 + 3 + i * 2);
-                    if (rateAtoB > 0f && rateAtoB >= target - band)
+                    if (TryPlaceDiode(current, ei, DiodeMode.AtoB, trialsK, seed + steps * 1000 + 3 + i * 2, tier, baselineCorridorLoad, target - band, out float rateA))
                     {
+                        var edge = current.edges[ei];
                         edge.diode = DiodeMode.AtoB;
                         diodeCountAtNode[edge.a]++;
                         diodeCountAtNode[edge.b]++;
@@ -106,38 +112,55 @@ namespace CircuitOneStroke.Generation
                         touchedNodes.Add(edge.b);
                         placed = true;
                         steps++;
-                        break;
                     }
                 }
+
                 if (!placed) break;
             }
 
+            var finalStats = MonteCarloEvaluator.EvaluateDetailed(current, trialsK, seed + 9999);
             result.level = current;
-            result.measuredRate = MonteCarloEvaluator.EstimateSuccessRate(current, trialsK, seed + 9999);
+            result.measuredRate = finalStats.successRate;
             result.diodeCount = CountDiodes(current);
-            result.inBand = DifficultyProfile.IsInBand(result.measuredRate, tier);
+            bool usageFinalOk = result.diodeCount == 0 || finalStats.diodeUsageRate >= MinUsageRate(tier);
+            bool corridorFinalOk = CorridorLoad(finalStats) <= baselineCorridorLoad + CorridorWorsenTolerance;
+            result.inBand = DifficultyProfile.IsInBand(result.measuredRate, tier) && usageFinalOk && corridorFinalOk;
             return result;
         }
 
-        private static int FindEdgeIndex(LevelData level, int a, int b)
+        private static bool TryPlaceDiode(
+            LevelData level,
+            int edgeIndex,
+            DiodeMode mode,
+            int trialsK,
+            int seed,
+            DifficultyTier tier,
+            float baselineCorridorLoad,
+            float minRateTarget,
+            out float measuredRate)
         {
-            for (int i = 0; i < level.edges.Length; i++)
-            {
-                var e = level.edges[i];
-                if ((e.a == a && e.b == b) || (e.a == b && e.b == a))
-                    return i;
-            }
-            return -1;
+            measuredRate = 0f;
+            var edge = level.edges[edgeIndex];
+            var prev = edge.diode;
+            edge.diode = mode;
+            var stats = MonteCarloEvaluator.EvaluateDetailed(level, trialsK, seed);
+            edge.diode = prev;
+
+            measuredRate = stats.successRate;
+            if (measuredRate < minRateTarget) return false;
+            if (stats.diodeUsageRate < MinUsageRate(tier)) return false;
+            if (CorridorLoad(stats) > baselineCorridorLoad + CorridorWorsenTolerance) return false;
+            return true;
         }
 
-        private static float ApplyDiodeAndMeasure(LevelData level, int edgeIndex, bool blockAtoB, int trialsK, int seed)
+        private static float CorridorLoad(MonteCarloEvaluator.EvaluationStats stats)
         {
-            var e = level.edges[edgeIndex];
-            var prev = e.diode;
-            e.diode = blockAtoB ? DiodeMode.BtoA : DiodeMode.AtoB;
-            float r = MonteCarloEvaluator.EstimateSuccessRate(level, trialsK, seed);
-            e.diode = prev;
-            return r;
+            return stats.forcedRatio + stats.corridorVisualRatio + stats.topEdgesShare;
+        }
+
+        private static float MinUsageRate(DifficultyTier tier)
+        {
+            return tier == DifficultyTier.Hard ? MinDiodeUsageRateHard : MinDiodeUsageRateMedium;
         }
 
         private static int CountDiodes(LevelData level)

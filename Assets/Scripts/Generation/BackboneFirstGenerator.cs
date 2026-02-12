@@ -49,7 +49,7 @@ namespace CircuitOneStroke.Generation
         {
             var rng = new Random(p.Seed);
             int N = rng.Next(p.NodeCountMin, p.NodeCountMax + 1);
-            N = Mathf.Clamp(N, 16, LevelSolverV2.MaxNodesSupported);
+            N = Mathf.Clamp(N, 16, LevelSolver.MaxNodesSupported);
 
             // Stage 1: Topology
             int switchCount = p.Difficulty == DifficultyTier.Easy ? rng.Next(0, 2) :

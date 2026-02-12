@@ -6,7 +6,8 @@ namespace CircuitOneStroke.Data
     public enum NodeType
     {
         Bulb,
-        Switch
+        Switch,
+        Blocked
     }
 
     /// <summary>

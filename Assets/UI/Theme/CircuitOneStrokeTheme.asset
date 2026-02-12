@@ -24,7 +24,7 @@ MonoBehaviour:
   textPrimary: {r: 0.12, g: 0.12, b: 0.18, a: 1}
   textSecondary: {r: 0.45, g: 0.45, b: 0.55, a: 1}
   textOnAccent: {r: 1, g: 1, b: 1, a: 1}
-  font: {fileID: 12800000, guid: 42837862c3d18eb4e8966e51772f7837, type: 3}
+  font: {fileID: 12800000, guid: b0852593617f80a4282f75e4a1ec9d72, type: 3}
   panelSprite: {fileID: 0}
   buttonSprite: {fileID: 0}
   buttonPressedSprite: {fileID: 0}
@@ -32,12 +32,14 @@ MonoBehaviour:
   sliderFillSprite: {fileID: 0}
   toggleBackgroundSprite: {fileID: 0}
   toggleCheckSprite: {fileID: 0}
-  iconPlay: {fileID: 0}
-  iconPause: {fileID: 0}
-  iconSettings: {fileID: 0}
-  iconRetry: {fileID: 0}
-  iconLevel: {fileID: 0}
-  iconBack: {fileID: 0}
+  iconPlay: {fileID: 21300000, guid: 47ce70a4be5972e4e934e17944d995e8, type: 3}
+  iconPause: {fileID: 21300000, guid: 9c6e337c7ef38b0478f6a52f8854a69a, type: 3}
+  iconSettings: {fileID: 21300000, guid: dc4f0a6d692a4a742a2bc4a63f598639, type: 3}
+  iconRetry: {fileID: 21300000, guid: 0444d31f14457f346b517cd60ffbe6e7, type: 3}
+  iconLevel: {fileID: 21300000, guid: c8aa36acd8e8f4d4e9341b3b3e220c7a, type: 3}
+  iconBack: {fileID: 21300000, guid: cc4973bdd1221ec40b3f5e1318b4d1a8, type: 3}
+  iconShop: {fileID: 21300000, guid: ea8b390893576bd419dbf8df88d8849e, type: 3}
+  iconHome: {fileID: 21300000, guid: a4d61ebbe6bc9654fa1e242b576e1f37, type: 3}
   highContrastBackground: {r: 0.98, g: 0.98, b: 1, a: 1}
   highContrastTextPrimary: {r: 0.1, g: 0.1, b: 0.15, a: 1}
   highContrastPanelBorder: {r: 0.2, g: 0.2, b: 0.3, a: 1}

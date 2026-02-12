@@ -8,23 +8,23 @@ using CircuitOneStroke.Solver;
 namespace CircuitOneStroke.Editor
 {
     /// <summary>
-    /// Editor-only tests for Level Factory v2: generate levels, ensure SolverV2 doesn't timeout,
+    /// Editor-only tests for Level Factory: generate levels, ensure solver stays within budget,
     /// and a reasonable fraction pass acceptance within attempt budget.
     /// </summary>
-    public static class LevelFactoryV2Tests
+    public static class LevelFactoryTests
     {
         private const int TestLevelCount = 10;
         private const int MaxAttemptsPerLevel = 150;
         private const float MinPassRate = 0.5f;
 
-        [MenuItem("Tools/Circuit One-Stroke/Run Level Factory V2 Tests")]
+        [MenuItem("Tools/Circuit One-Stroke/Run Level Factory Tests")]
         public static void RunTests()
         {
             int passed = 0;
             int timeoutCount = 0;
-            var settings = SolverSettings.Default;
-            settings.TimeBudgetMs = 200;
-            settings.MaxSolutionsCap = 6;
+            int maxSolutions = 6;
+            int maxStatesExpanded = 250000;
+            int maxMillis = 200;
 
             for (int i = 0; i < TestLevelCount; i++)
             {
@@ -45,12 +45,12 @@ namespace CircuitOneStroke.Editor
                         Debug.LogWarning($"Generate failed: {ex.Message}");
                         continue;
                     }
-                    var outcome = LevelSolverV2.Evaluate(level, settings);
-                    if (outcome.Status == SolverV2Status.Timeout)
+                    var outcome = LevelSolver.Solve(level, maxSolutions, maxStatesExpanded, maxMillis);
+                    if (outcome.status == SolverStatus.BudgetExceeded)
                         timeoutCount++;
-                    if (outcome.Status == SolverV2Status.Feasible &&
-                        outcome.SolutionsFoundCapped >= 1 && outcome.SolutionsFoundCapped <= 5 &&
-                        outcome.DecisionPoints >= 1 && outcome.AvgBranching <= 2.5f &&
+                    if (outcome.solvableWithinBudget &&
+                        outcome.solutionsFoundWithinBudget >= 1 && outcome.solutionsFoundWithinBudget <= 5 &&
+                        outcome.earlyBranching >= 1.0f && outcome.earlyBranching <= 2.5f &&
                         AestheticEvaluator.Accept(level, 2, 0.22f, 0.45f))
                     {
                         passed++;
@@ -62,11 +62,11 @@ namespace CircuitOneStroke.Editor
 
             float rate = TestLevelCount > 0 ? (float)passed / TestLevelCount : 0f;
             if (timeoutCount > TestLevelCount)
-                Debug.LogError($"Level Factory V2 Tests: Too many timeouts ({timeoutCount}). Consider increasing time budget.");
+                Debug.LogError($"Level Factory Tests: Too many timeouts ({timeoutCount}). Consider increasing time budget.");
             else if (rate < MinPassRate)
-                Debug.LogWarning($"Level Factory V2 Tests: Pass rate {rate:P0} (passed={passed}, target>={MinPassRate:P0}). Tune thresholds or attempts.");
+                Debug.LogWarning($"Level Factory Tests: Pass rate {rate:P0} (passed={passed}, target>={MinPassRate:P0}). Tune thresholds or attempts.");
             else
-                Debug.Log($"Level Factory V2 Tests: Passed {passed}/{TestLevelCount} ({rate:P0}), timeouts in run: {timeoutCount}. OK.");
+                Debug.Log($"Level Factory Tests: Passed {passed}/{TestLevelCount} ({rate:P0}), timeouts in run: {timeoutCount}. OK.");
         }
     }
 }

@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c9925c45eb31c346a564022823404a6, type: 3}
+  m_Name: LocalizationTable
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.Data.LocalizationTable
+  entries:
+  - key: settings
+    en: Settings
+    ko: "\uC124\uC815"
+  - key: haptics_light
+    en: Light
+    ko: "\uC57D\uD558\uAC8C"
+  - key: haptics_normal
+    en: Normal
+    ko: "\uBCF4\uD1B5"
+  - key: node_small
+    en: Small
+    ko: "\uC791\uAC8C"
+  - key: node_normal
+    en: Normal
+    ko: "\uBCF4\uD1B5"
+  - key: node_large
+    en: Large
+    ko: "\uD06C\uAC8C"
+  - key: line_thin
+    en: Thin
+    ko: "\uC587\uAC8C"
+  - key: line_normal
+    en: Normal
+    ko: "\uBCF4\uD1B5"
+  - key: line_thick
+    en: Thick
+    ko: "\uAD75\uAC8C"
+  - key: how_to_play_toast
+    en: 'How to Play: Draw one continuous path through all bulbs. Switches toggle
+      gates.'
+    ko: "\uBC29\uBC95: \uBAA8\uB4E0 \uC804\uAD6C\uB97C \uD55C \uBD93\uC73C\uB85C
+      \uC5F0\uACB0\uD558\uC138\uC694. \uC2A4\uC704\uCE58\uB294 \uBB38\uC744 \uC5F4\uACE0
+      \uB2EB\uC2B5\uB2C8\uB2E4."
+  - key: no_ads_desc
+    en: Removes forced ads (interstitial/banners). Optional rewarded ads for bonuses
+      may still be available.
+    ko: "\uAC15\uC81C \uAD11\uACE0(\uC804\uBA74/\uBC30\uB108)\uB97C \uC81C\uAC70\uD569\uB2C8\uB2E4.
+      \uBCF4\uB108\uC2A4\uC6A9 \uC120\uD0DD \uAD11\uACE0\uB294 \uC720\uC9C0\uB420
+      \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+  - key: toast_continue_from_tail
+    en: Continue from the last node
+    ko: "\uB9C8\uC9C0\uB9C9 \uB178\uB4DC\uC5D0\uC11C \uC774\uC5B4\uC11C \uADF8\uB9AC\uC138\uC694."

@@ -459,6 +459,15 @@ namespace CircuitOneStroke.Editor
             return canvas;
         }
 
+        /// <summary>NodeView/EdgeView 프리팹이 없으면 생성. AppScene 등에서 FillGameScreenRoot 전에 호출용.</summary>
+        public static void EnsureNodeAndEdgePrefabs()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NodeView.prefab") == null)
+                CreateNodePrefab();
+            if (AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/EdgeView.prefab") == null)
+                CreateEdgePrefab();
+        }
+
         private static GameObject CreateNodePrefab()
         {
             if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))

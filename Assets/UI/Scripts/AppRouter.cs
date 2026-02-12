@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 using CircuitOneStroke.Core;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.Services;
@@ -12,9 +13,17 @@ namespace CircuitOneStroke.UI
     /// </summary>
     public class AppRouter : MonoBehaviour
     {
+        /// <summary>true면 Console에 [AppScene] 로그 출력. 버튼 무응답/퍼즐 미노출 디버깅용.</summary>
+        public static bool DebugAppScene = true;
+        [Header("Debug")]
+        [Tooltip("체크 해제하면 [AppScene] 로그를 끔. 버튼/퍼즐 문제 해결 후 false 권장.")]
+        [SerializeField] private bool enableAppSceneDebugLog = true;
+
         [Header("Roots")]
         [SerializeField] private GameObject mainShellRoot;
         [SerializeField] private GameObject gameRoot;
+        /// <summary>퍼즐(노드/엣지)이 그려지는 월드 루트. Canvas 밖에 두어 카메라가 그리도록 함. 없으면 gameRoot 안에서 찾음.</summary>
+        [SerializeField] private GameObject gameWorldRoot;
         [SerializeField] private Transform mainShellContentRoot;
 
         [Header("Tab Content (Home = Level Select)")]
@@ -40,7 +49,21 @@ namespace CircuitOneStroke.UI
         public LastIntent LastIntent { get; private set; }
         public LevelManifest LevelManifest => levelManifest;
         public LevelLoader LevelLoader => levelLoader;
-
+        /// <summary>true면 결과(승/패/OutOfHearts)는 OverlayManager로 표시. false면 GameHUD 자체 패널 사용.</summary>
+        public bool UseOverlayForResult => overlayManager != null;
+        /// <summary>퍼즐이 그려지는 Game 오브젝트. 런타임에 없으면 "Game" 이름으로 찾음.</summary>
+        public GameObject GameWorldRoot
+        {
+            get
+            {
+                if (gameWorldRoot != null) return gameWorldRoot;
+                if (_cachedGameWorld != null) return _cachedGameWorld;
+                var go = GameObject.Find("Game");
+                if (go != null) _cachedGameWorld = go;
+                return _cachedGameWorld;
+            }
+        }
+        private GameObject _cachedGameWorld;
         private bool IsTransitioning => TransitionManager.Instance != null && TransitionManager.Instance.IsTransitioning;
 
         private void Awake()
@@ -51,6 +74,16 @@ namespace CircuitOneStroke.UI
             if (levelLoader == null) levelLoader = FindFirstObjectByType<LevelLoader>();
             if (levelManifest == null) levelManifest = Resources.Load<LevelManifest>("Levels/GeneratedLevelManifest");
             if (gameFlowController == null) gameFlowController = FindFirstObjectByType<GameFlowController>();
+            if (gameWorldRoot == null)
+            {
+                var go = GameObject.Find("Game");
+                if (go != null) _cachedGameWorld = go;
+            }
+            DebugAppScene = enableAppSceneDebugLog;
+            if (DebugAppScene)
+            {
+                Debug.Log($"[AppScene] AppRouter.Awake: levelLoader={levelLoader != null}, gameFlowController={gameFlowController != null}, gameWorldRoot={gameWorldRoot != null}, cachedGame={_cachedGameWorld != null}, mainShellRoot={mainShellRoot != null}, gameRoot={gameRoot != null}");
+            }
         }
 
         private void Start()
@@ -65,7 +98,7 @@ namespace CircuitOneStroke.UI
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
                 HandleBack();
         }
 
@@ -84,16 +117,36 @@ namespace CircuitOneStroke.UI
             bottomNavBar?.SetSelectedTab(tab);
         }
 
+        /// <summary>ScreenRouter가 탭 전환할 때 호출. AppRouter의 CurrentTab/하이라이트 동기화.</summary>
+        public void SyncTabFromScreen(ScreenRouter.ScreenId screenId)
+        {
+            MainTab t = screenId == ScreenRouter.ScreenId.HomeTab ? MainTab.Home
+                : screenId == ScreenRouter.ScreenId.ShopTab ? MainTab.Shop : MainTab.Settings;
+            CurrentTab = t;
+            if (homeTabView != null) homeTabView.SetActive(t == MainTab.Home);
+            if (shopTabView != null) shopTabView.SetActive(t == MainTab.Shop);
+            if (settingsTabView != null) settingsTabView.SetActive(t == MainTab.Settings);
+            bottomNavBar?.SetSelectedTab(t);
+        }
+
         public void ShowMainShell(MainTab tab)
         {
             CurrentMode = ScreenMode.MainShell;
+            ScreenRouter.Instance?.SetGameInputEnabled(false);
             if (mainShellRoot != null) mainShellRoot.SetActive(true);
-            if (gameRoot != null) gameRoot.SetActive(false);
+            if (gameRoot != null)
+            {
+                gameRoot.SetActive(false);
+                var img = gameRoot.GetComponent<UnityEngine.UI.Image>();
+                if (img != null) img.enabled = true;
+            }
+            if (GameWorldRoot != null) GameWorldRoot.SetActive(false);
             ShowTab(tab);
         }
 
         public void RequestStartLevel(int levelId)
         {
+            if (DebugAppScene) Debug.Log($"[AppScene] RequestStartLevel(levelId={levelId})");
             LastIntent = new LastIntent { type = IntentType.StartLevel, levelId = levelId };
             if (gameFlowController != null) gameFlowController.SetLastIntent(LastIntent);
             if (!HeartsManager.Instance.CanStartAttempt())
@@ -200,7 +253,8 @@ namespace CircuitOneStroke.UI
 
         private IEnumerator BuildLevelJob(int levelId)
         {
-            if (levelLoader == null) yield break;
+            if (DebugAppScene) Debug.Log($"[AppScene] BuildLevelJob(levelId={levelId}) levelLoader={levelLoader != null}, gameFlowController={gameFlowController != null}");
+            if (levelLoader == null) { if (DebugAppScene) Debug.LogWarning("[AppScene] BuildLevelJob: levelLoader is null, level will NOT load."); yield break; }
             LevelRecords.LastPlayedLevelId = levelId;
             overlayManager?.HideAllExceptToast();
 
@@ -222,10 +276,45 @@ namespace CircuitOneStroke.UI
 
         public void EnterGame(int levelId)
         {
+            var gw = GameWorldRoot;
+            if (DebugAppScene) Debug.Log($"[AppScene] EnterGame(levelId={levelId}) GameWorldRoot={gw != null}, active={gw != null && gw.activeSelf}, gameRoot={gameRoot != null}");
             CurrentLevelId = levelId;
             CurrentMode = ScreenMode.GamePlay;
             if (mainShellRoot != null) mainShellRoot.SetActive(false);
-            if (gameRoot != null) gameRoot.SetActive(true);
+            if (gw != null)
+            {
+                gw.SetActive(true);
+                gw.layer = 0;
+                SetLayerRecursively(gw.transform, 0);
+                if (DebugAppScene)
+                {
+                    var nodesTr = gw.transform.Find("Nodes");
+                    int nodeCount = nodesTr != null ? nodesTr.childCount : -1;
+                    var cam = Camera.main;
+                    bool camSeesDefault = cam != null && (cam.cullingMask & (1 << 0)) != 0;
+                    Debug.Log($"[AppScene] EnterGame: Game 활성화, Nodes={nodeCount}, Game.layer=Default(0), Camera.main culls Default={camSeesDefault}. (퍼즐 안 보이면 카메라 Culling Mask에 Default 체크 확인)");
+                }
+            }
+            if (gameRoot != null)
+            {
+                gameRoot.SetActive(true);
+                var img = gameRoot.GetComponent<UnityEngine.UI.Image>();
+                if (img != null)
+                {
+                    img.color = Color.clear;
+                    img.raycastTarget = false;
+                    img.enabled = false;
+                }
+            }
+            ScreenRouter.Instance?.SetGameInputEnabled(true);
+        }
+
+        private static void SetLayerRecursively(Transform t, int layer)
+        {
+            if (t == null) return;
+            t.gameObject.layer = layer;
+            for (int i = 0; i < t.childCount; i++)
+                SetLayerRecursively(t.GetChild(i), layer);
         }
 
         public void ExitGameToHomeTab()
@@ -332,9 +421,9 @@ namespace CircuitOneStroke.UI
     /// <summary>Bottom tab bar: Home / Shop / Settings. Highlights selected tab.</summary>
     public class MainShellNavBar : MonoBehaviour
     {
-        [SerializeField] private Button homeButton;
-        [SerializeField] private Button shopButton;
-        [SerializeField] private Button settingsButton;
+        [SerializeField] private UnityEngine.UI.Button homeButton;
+        [SerializeField] private UnityEngine.UI.Button shopButton;
+        [SerializeField] private UnityEngine.UI.Button settingsButton;
         [SerializeField] private GameObject homeHighlight;
         [SerializeField] private GameObject shopHighlight;
         [SerializeField] private GameObject settingsHighlight;

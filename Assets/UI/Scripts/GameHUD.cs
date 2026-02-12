@@ -46,6 +46,8 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Text levelLabel;
         [Header("Bottom Bar (참고 스크린샷)")]
         [SerializeField] private Button backButton;
+        [SerializeField] private Button undoButton;
+        [SerializeField] private Button hintButton;
 
         private GameStateMachine _stateMachine;
 
@@ -82,6 +84,10 @@ namespace CircuitOneStroke.UI
                 settingsButton.onClick.AddListener(OnSettingsClicked);
             if (backButton != null)
                 backButton.onClick.AddListener(OnHomeClicked);
+            if (undoButton != null)
+                undoButton.onClick.AddListener(OnUndoClicked);
+            if (hintButton != null)
+                hintButton.onClick.AddListener(OnHintClicked);
 
             RefreshHeartsDisplay();
             RefreshVisibility();
@@ -195,7 +201,7 @@ namespace CircuitOneStroke.UI
         private void RefreshVisibility()
         {
             var state = levelLoader?.StateMachine?.State ?? GameState.Idle;
-            bool useOverlayManager = AppRouter.Instance != null;
+            bool useOverlayManager = AppRouter.Instance != null && AppRouter.Instance.UseOverlayForResult;
             if (successPanel != null) successPanel.SetActive(!useOverlayManager && state == GameState.LevelComplete);
             if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(!useOverlayManager && state == GameState.LevelComplete);
             if (failPanel != null) failPanel.SetActive(!useOverlayManager && state == GameState.LevelFailed);
@@ -259,12 +265,38 @@ namespace CircuitOneStroke.UI
 
         private void OnHomeClicked()
         {
+            var state = levelLoader?.StateMachine?.State ?? GameState.Idle;
+            bool fromResultScreen = (state == GameState.LevelFailed || state == GameState.LevelComplete);
             if (AppRouter.Instance != null)
             {
-                AppRouter.Instance.RequestExitGame();
+                if (fromResultScreen)
+                    AppRouter.Instance.ExitGameToHomeTab();
+                else
+                    AppRouter.Instance.RequestExitGame();
+                return;
+            }
+            if (ScreenRouter.Instance != null)
+            {
+                ScreenRouter.Instance.ExitGameToHome();
                 return;
             }
             router?.ShowHome();
+        }
+
+        private void OnUndoClicked()
+        {
+            if (levelLoader?.StateMachine == null || levelLoader.Runtime == null) return;
+            if (_stateMachine.State != GameState.Drawing) return;
+            if (!levelLoader.Runtime.RemoveLastStrokeNode()) return;
+            levelLoader.RefreshNodeViews();
+        }
+
+        private void OnHintClicked()
+        {
+            if (AppRouter.Instance != null)
+                AppRouter.Instance.ShowToast("Hint: Connect all bulbs in one stroke.");
+            else if (router != null)
+                router.ShowToast("Hint: Connect all bulbs in one stroke.");
         }
 
         /// <summary>Watch Ad to Refill - opt-in only (button click). NoAds로 제거 불가.</summary>

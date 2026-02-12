@@ -5,7 +5,7 @@ namespace CircuitOneStroke.View
 {
     /// <summary>
     /// LevelRuntime.StrokeNodes 순서대로 현재 한 붓 경로를 LineRenderer로 그림.
-    /// 2~3겹 라인(Outer/Core/Track) 구조로 흰 배경 대비 보장. 전류 텍스처 + 파티클 스파크.
+    /// 2~3겹 라인(Outer/Core/Track) 구조로 흰 배경 대비 보장. 전류 텍스처 스크롤 + 간헐적 스파크 버스트만(점/비드 없음).
     /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class StrokeRenderer : MonoBehaviour
@@ -13,13 +13,14 @@ namespace CircuitOneStroke.View
         [Header("Line")]
         [SerializeField] private float lineWidthBase = 0.22f;
 
-        [Header("Electric Flow (A)")]
+        [Header("Electric Flow (texture scroll)")]
         [SerializeField] private float flowSpeed = 2f;
         [SerializeField] private float textureScale = 4f;
 
-        [Header("Sparks (D)")]
-        [SerializeField] private float sparkEmitRate = 80f;
-        [SerializeField] private float sparkTravelSpeed = 3f;
+        [Header("Spark bursts (at nodes, no continuous beads)")]
+        [SerializeField, Range(4f, 10f)] private float sparkBurstsPerSecond = 6f;
+        [SerializeField, Range(0.1f, 0.25f)] private float sparkLifetimeMin = 0.12f;
+        [SerializeField, Range(0.1f, 0.25f)] private float sparkLifetimeMax = 0.22f;
 
         [Header("Flicker (optional)")]
         [SerializeField] private bool flickerEnabled = true;
@@ -33,7 +34,7 @@ namespace CircuitOneStroke.View
         private Material _trackMaterial;
         private ParticleSystem _sparks;
         private Transform _sparkEmitter;
-        private float _pathT;
+        private float _sparkBurstAccum;
         private Vector3[] _pathCache = new Vector3[64];
         private int _coreSortOrder;
 
@@ -131,6 +132,7 @@ namespace CircuitOneStroke.View
             _lrCore.alignment = LineAlignment.View;
         }
 
+        /// <summary>스파크는 버스트만 사용. rateOverTime=0으로 연속 점/비드 없음.</summary>
         private void SetupSparkParticles()
         {
             var go = new GameObject("StrokeSparks");
@@ -141,20 +143,20 @@ namespace CircuitOneStroke.View
             _sparks = go.AddComponent<ParticleSystem>();
             var main = _sparks.main;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.startLifetime = 0.08f;
-            main.startSpeed = 0.3f;
-            main.startSize = 0.12f;
-            main.startColor = new Color(1f, 0.98f, 0.7f, 0.95f);
-            main.maxParticles = 120;
+            main.startLifetime = sparkLifetimeMax;
+            main.startSpeed = 0.2f;
+            main.startSize = 0.14f;
+            main.startColor = new Color(1f, 0.98f, 0.75f, 0.95f);
+            main.maxParticles = 32;
             main.playOnAwake = false;
 
             var emission = _sparks.emission;
-            emission.rateOverTime = sparkEmitRate;
-            emission.enabled = true;
+            emission.rateOverTime = 0f;
+            emission.enabled = false;
 
             var shape = _sparks.shape;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.05f;
+            shape.radius = 0.001f;
 
             var renderer = go.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
@@ -254,7 +256,7 @@ namespace CircuitOneStroke.View
             {
                 float ts = totalLen > 0.01f ? totalLen * textureScale * 0.5f : textureScale;
                 _coreMaterial.mainTextureScale = new Vector2(ts, 1f);
-                float offset = (Time.time * flowSpeed) % 1f;
+                float offset = Mathf.Repeat(Time.time * flowSpeed, 1f);
                 _coreMaterial.mainTextureOffset = new Vector2(offset, 0f);
             }
 
@@ -268,11 +270,18 @@ namespace CircuitOneStroke.View
                     _outerMaterial.color = new Color(0.10f, 0.55f, 1f, outerAlpha);
             }
 
-            _pathT += Time.deltaTime * sparkTravelSpeed;
-            if (_pathT >= 1f) _pathT -= 1f;
-            Vector3 sparkPos = GetPointAlongPath(_pathT);
-            _sparkEmitter.position = sparkPos;
-            if (!_sparks.isPlaying)
+            float burstInterval = 1f / Mathf.Clamp(sparkBurstsPerSecond, 1f, 20f);
+            _sparkBurstAccum += Time.deltaTime;
+            while (_sparkBurstAccum >= burstInterval && n >= 1)
+            {
+                _sparkBurstAccum -= burstInterval;
+                Vector3 sparkPos = GetSparkSpawnPosition(n);
+                _sparkEmitter.position = sparkPos;
+                var ep = new ParticleSystem.EmitParams();
+                ep.startLifetime = Random.Range(sparkLifetimeMin, sparkLifetimeMax);
+                _sparks.Emit(ep, 1);
+            }
+            if (n >= 1 && !_sparks.isPlaying)
                 _sparks.Play();
         }
 
@@ -281,6 +290,24 @@ namespace CircuitOneStroke.View
             _lrCore.positionCount = count;
             _lrOuter.positionCount = count;
             _lrTrack.positionCount = count;
+        }
+
+        /// <summary>스파크 생성 위치: 접점(노드) 위주, 라인 중간은 최소화.</summary>
+        private Vector3 GetSparkSpawnPosition(int n)
+        {
+            if (n <= 0) return Vector3.zero;
+            if (n == 1) return _pathCache[0];
+            bool atNode = Random.value < 0.7f;
+            if (atNode)
+            {
+                int i;
+                if (n == 2) i = Random.Range(0, 2);
+                else if (n == 3) i = Random.Range(0, 3);
+                else { int[] ends = new[] { 0, 1, n - 1, n - 2 }; i = ends[Random.Range(0, 4)]; }
+                return _pathCache[i];
+            }
+            float t = Random.Range(0.1f, 0.9f);
+            return GetPointAlongPath(t);
         }
 
         private Vector3 GetPointAlongPath(float t)
@@ -292,7 +319,7 @@ namespace CircuitOneStroke.View
             for (int i = 1; i < n; i++)
                 totalLen += Vector3.Distance(_pathCache[i - 1], _pathCache[i]);
             if (totalLen < 0.001f) return _pathCache[0];
-            float target = t * totalLen;
+            float target = Mathf.Clamp01(t) * totalLen;
             float acc = 0f;
             for (int i = 1; i < n; i++)
             {

@@ -1,14 +1,16 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.View;
+using CircuitOneStroke.Generation;
 
 namespace CircuitOneStroke.Core
 {
     /// <summary>
-    /// LevelData를 로드해 런타임·상태 기계를 만들고, 노드/엣지 뷰를 생성.
-    /// 씬에서 노드 루트·엣지 루트·프리팹·StrokeRenderer 참조 보유.
+    /// LevelData瑜?濡쒕뱶???고??꽷룹긽??湲곌퀎瑜?留뚮뱾怨? ?몃뱶/?ｌ? 酉곕? ?앹꽦.
+    /// ?ъ뿉???몃뱶 猷⑦듃쨌?ｌ? 猷⑦듃쨌?꾨━?뮤톁trokeRenderer 李몄“ 蹂댁쑀.
     /// </summary>
     public class LevelLoader : MonoBehaviour
     {
@@ -29,7 +31,7 @@ namespace CircuitOneStroke.Core
         public LevelData LevelData => levelData;
         public event Action<GameStateMachine> OnStateMachineChanged;
 
-        /// <summary>방문한 전구에 맞춰 노드 뷰의 시각 상태 갱신.</summary>
+        /// <summary>諛⑸Ц???꾧뎄??留욎떠 ?몃뱶 酉곗쓽 ?쒓컖 ?곹깭 媛깆떊.</summary>
         public void RefreshNodeViews()
         {
             if (_nodeViews == null || _runtime == null) return;
@@ -38,7 +40,7 @@ namespace CircuitOneStroke.Core
                 nv.SetVisited(visited.Contains(nv.NodeId));
         }
 
-        /// <summary>edgeId에 해당하는 EdgeView 반환. 리젝트 플래시 등에 사용.</summary>
+        /// <summary>edgeId???대떦?섎뒗 EdgeView 諛섑솚. 由ъ젥???뚮옒???깆뿉 ?ъ슜.</summary>
         public EdgeView GetEdgeView(int edgeId)
         {
             if (_edgeViews == null) return null;
@@ -47,7 +49,7 @@ namespace CircuitOneStroke.Core
             return null;
         }
 
-        /// <summary>nodeId에 해당하는 NodeView 반환. 꼬리 하이라이트 등에 사용.</summary>
+        /// <summary>nodeId???대떦?섎뒗 NodeView 諛섑솚. 瑗щ━ ?섏씠?쇱씠???깆뿉 ?ъ슜.</summary>
         public NodeView GetNodeView(int nodeId)
         {
             if (_nodeViews == null) return null;
@@ -56,21 +58,57 @@ namespace CircuitOneStroke.Core
             return null;
         }
 
-        /// <summary>지정 LevelData로 교체 후 현재 레벨 재로드.</summary>
+        /// <summary>
+        /// Highlight currently legal move candidates and dim the rest.
+        /// </summary>
+        public void SetMoveHints(int currentNodeId, IReadOnlyList<int> candidateNodeIds, IReadOnlyList<int> candidateEdgeIds)
+        {
+            HashSet<int> nodeSet = null;
+            HashSet<int> edgeSet = null;
+            if (candidateNodeIds != null)
+            {
+                nodeSet = new HashSet<int>(candidateNodeIds);
+                if (currentNodeId >= 0) nodeSet.Add(currentNodeId);
+            }
+            if (candidateEdgeIds != null)
+                edgeSet = new HashSet<int>(candidateEdgeIds);
+
+            bool enableHints = nodeSet != null && nodeSet.Count > 0;
+            if (_nodeViews != null)
+            {
+                foreach (var nv in _nodeViews)
+                {
+                    if (nv == null) continue;
+                    bool isCandidate = enableHints && nodeSet.Contains(nv.NodeId);
+                    nv.SetMoveHint(isCandidate, enableHints);
+                }
+            }
+            if (_edgeViews != null)
+            {
+                foreach (var ev in _edgeViews)
+                {
+                    if (ev == null) continue;
+                    bool isCandidate = enableHints && edgeSet != null && edgeSet.Contains(ev.EdgeId);
+                    ev.SetMoveHint(isCandidate, enableHints);
+                }
+            }
+        }
+
+        /// <summary>吏??LevelData濡?援먯껜 ???꾩옱 ?덈꺼 ?щ줈??</summary>
         public void LoadLevel(LevelData data)
         {
             levelData = data;
             LoadCurrent();
         }
 
-        /// <summary>지정 LevelData로 교체 후 LoadCurrentCoroutine 실행. TransitionManager용.</summary>
+        /// <summary>吏??LevelData濡?援먯껜 ??LoadCurrentCoroutine ?ㅽ뻾. TransitionManager??</summary>
         public IEnumerator LoadLevelCoroutine(LevelData data)
         {
             levelData = data;
             yield return LoadCurrentCoroutine();
         }
 
-        /// <summary>Resources/Levels/Level_{levelId} 로드 후 LoadLevelCoroutine 실행.</summary>
+        /// <summary>Resources/Levels/Level_{levelId} 濡쒕뱶 ??LoadLevelCoroutine ?ㅽ뻾.</summary>
         public IEnumerator LoadLevelCoroutine(int levelId)
         {
             var data = Resources.Load<LevelData>($"Levels/Level_{levelId}");
@@ -81,7 +119,7 @@ namespace CircuitOneStroke.Core
             }
         }
 
-        /// <summary>Resources/Levels/Level_{levelId} 로드 후 적용.</summary>
+        /// <summary>Resources/Levels/Level_{levelId} 濡쒕뱶 ???곸슜.</summary>
         public void LoadLevel(int levelId)
         {
             var data = Resources.Load<LevelData>($"Levels/Level_{levelId}");
@@ -89,7 +127,7 @@ namespace CircuitOneStroke.Core
                 LoadLevel(data);
         }
 
-        /// <summary>현재 levelData로 런타임·상태기계·노드/엣지 뷰 재구성.</summary>
+        /// <summary>?꾩옱 levelData濡??고??꽷룹긽?쒓린怨꽷룸끂???ｌ? 酉??ш뎄??</summary>
         public void LoadCurrent()
         {
             if (levelData == null) return;
@@ -103,7 +141,7 @@ namespace CircuitOneStroke.Core
             SpawnEdges();
         }
 
-        /// <summary>전환용. Yield between phases to prevent frame spikes.</summary>
+        /// <summary>?꾪솚?? Yield between phases to prevent frame spikes.</summary>
         public IEnumerator LoadCurrentCoroutine()
         {
             if (levelData == null) yield break;
@@ -126,7 +164,7 @@ namespace CircuitOneStroke.Core
             yield return null;
         }
 
-        /// <summary>기존 노드/엣지 뷰 제거 및 배열 초기화.</summary>
+        /// <summary>湲곗〈 ?몃뱶/?ｌ? 酉??쒓굅 諛?諛곗뿴 珥덇린??</summary>
         private void Clear()
         {
             if (nodesRoot != null)
@@ -143,7 +181,7 @@ namespace CircuitOneStroke.Core
             _edgeViews = null;
         }
 
-        /// <summary>levelData.nodes 기준으로 노드 뷰 인스턴스 생성.</summary>
+        /// <summary>levelData.nodes 湲곗??쇰줈 ?몃뱶 酉??몄뒪?댁뒪 ?앹꽦.</summary>
         private void SpawnNodes()
         {
             if (levelData.nodes == null || nodeViewPrefab == null || nodesRoot == null) return;
@@ -161,11 +199,12 @@ namespace CircuitOneStroke.Core
             }
         }
 
-        /// <summary>levelData.edges 기준으로 엣지 뷰 인스턴스 생성. 게이트/다이오드 정보 전달.</summary>
+        /// <summary>levelData.edges 湲곗??쇰줈 ?ｌ? 酉??몄뒪?댁뒪 ?앹꽦. 寃뚯씠???ㅼ씠?ㅻ뱶 ?뺣낫 ?꾨떖.</summary>
         private void SpawnEdges()
         {
             if (levelData.edges == null || edgeViewPrefab == null || edgesRoot == null) return;
             _edgeViews = new EdgeView[levelData.edges.Length];
+            var problemEdges = AestheticEvaluator.FindReadabilityProblemEdges(levelData, clearanceThreshold: 0.55f);
             for (int i = 0; i < levelData.edges.Length; i++)
             {
                 var ed = levelData.edges[i];
@@ -175,13 +214,14 @@ namespace CircuitOneStroke.Core
                 var ev = go.GetComponent<EdgeView>();
                 if (ev != null)
                 {
-                    ev.Setup(ed.id, posA, posB, ed.diode, ed.gateGroupId, ed.initialGateOpen, _runtime);
+                    bool curveForReadability = problemEdges.Contains(ed.id);
+                    ev.Setup(ed.id, posA, posB, ed.diode, ed.gateGroupId, ed.initialGateOpen, _runtime, curveForReadability);
                     _edgeViews[i] = ev;
                 }
             }
         }
 
-        /// <summary>엣지 스폰 시 노드 위치 조회용. (런타임 캐시는 로드 후 사용 가능)</summary>
+        /// <summary>?ｌ? ?ㅽ룿 ???몃뱶 ?꾩튂 議고쉶?? (?고???罹먯떆??濡쒕뱶 ???ъ슜 媛??</summary>
         private Vector2 GetNodePos(int nodeId)
         {
             if (levelData?.nodes == null) return Vector2.zero;
@@ -190,7 +230,7 @@ namespace CircuitOneStroke.Core
             return Vector2.zero;
         }
 
-        /// <summary>levelData는 GameFlowController/RequestStartLevel에서 설정. 자동 로드 없음.</summary>
+        /// <summary>levelData??GameFlowController/RequestStartLevel?먯꽌 ?ㅼ젙. ?먮룞 濡쒕뱶 ?놁쓬.</summary>
         private void Start()
         {
         }

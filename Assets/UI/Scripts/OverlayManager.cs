@@ -57,12 +57,27 @@ namespace CircuitOneStroke.UI
             if (confirmExitDialog != null) confirmExitDialog.SetActive(false);
         }
 
+        /// <summary>반투명 어두운 배경으로 설정. 씬에서 흰색(0.96,0.96,0.98)이면 흰 화면만 보이므로 런타임에 고정.</summary>
+        private static readonly Color ResultOverlayBackground = new Color(0f, 0f, 0f, 0.6f);
+
+        /// <summary>패널 내 버튼이 겹치지 않게 위치 보정, 텍스트 가독성 확보. 기존 ResultDialog Win/Lose 콘텐츠를 그대로 쓰되 표시만 보정.</summary>
+        private static readonly Color ResultPanelTextColor = new Color(0.12f, 0.12f, 0.18f, 1f);
+
         public void ShowResultWin(int levelId, Action onNext, Action onLevelSelect)
         {
             HideOutOfHearts();
             _resultVisible = true;
-            if (resultDialogRoot != null) resultDialogRoot.SetActive(true);
-            if (resultWinContent != null) resultWinContent.SetActive(true);
+            if (resultDialogRoot != null)
+            {
+                resultDialogRoot.SetActive(true);
+                var img = resultDialogRoot.GetComponent<Image>();
+                if (img != null) img.color = ResultOverlayBackground;
+            }
+            if (resultWinContent != null)
+            {
+                resultWinContent.SetActive(true);
+                ApplyResultWinLayout();
+            }
             if (resultLoseContent != null) resultLoseContent.SetActive(false);
             _resultWinNext = onNext;
             _resultWinLevelSelect = onLevelSelect;
@@ -72,11 +87,23 @@ namespace CircuitOneStroke.UI
         {
             HideOutOfHearts();
             _resultVisible = true;
-            if (resultDialogRoot != null) resultDialogRoot.SetActive(true);
+            if (resultDialogRoot != null)
+            {
+                resultDialogRoot.SetActive(true);
+                var img = resultDialogRoot.GetComponent<Image>();
+                if (img != null) img.color = ResultOverlayBackground;
+            }
             if (resultWinContent != null) resultWinContent.SetActive(false);
-            if (resultLoseContent != null) resultLoseContent.SetActive(true);
-            if (resultLoseMessageText != null)
-                resultLoseMessageText.text = hearts > 0 ? "Try again?" : "Out of hearts. Watch an ad to refill.";
+            if (resultLoseContent != null)
+            {
+                resultLoseContent.SetActive(true);
+                if (resultLoseMessageText != null)
+                {
+                    resultLoseMessageText.text = hearts > 0 ? "Try again?" : "Out of hearts. Watch an ad to refill.";
+                    resultLoseMessageText.color = ResultPanelTextColor;
+                }
+                ApplyResultLoseLayout();
+            }
             if (resultLoseRetryButton != null)
             {
                 resultLoseRetryButton.gameObject.SetActive(true);
@@ -86,6 +113,141 @@ namespace CircuitOneStroke.UI
             _resultLoseRetry = onRetry;
             _resultLoseLevelSelect = onLevelSelect;
             _resultLoseWatchAd = onWatchAd;
+        }
+
+        private void ApplyResultWinLayout()
+        {
+            if (resultWinContent == null) return;
+            ApplyPanelSizing(resultWinContent);
+            var panelRt = resultWinContent.GetComponent<RectTransform>();
+            float panelH = panelRt != null ? panelRt.rect.height : 360f;
+            float y = panelH * 0.18f;
+            // Next / Level Select 두 버튼이 겹쳐 있으면 한 개만 보이므로, Y 위치로 위·아래 분리
+            if (resultWinNextButton != null)
+            {
+                var rt = resultWinNextButton.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.sizeDelta = new Vector2(260f, 64f);
+                    rt.anchoredPosition = new Vector2(0f, y);
+                }
+                SetButtonLabel(resultWinNextButton, "Next");
+            }
+            if (resultWinLevelSelectButton != null)
+            {
+                var rt = resultWinLevelSelectButton.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.sizeDelta = new Vector2(260f, 64f);
+                    rt.anchoredPosition = new Vector2(0f, -y);
+                }
+                SetButtonLabel(resultWinLevelSelectButton, "Level Select");
+            }
+            EnsureTextVisibleIn(resultWinContent);
+        }
+
+        private void ApplyResultLoseLayout()
+        {
+            if (resultLoseContent == null) return;
+            ApplyPanelSizing(resultLoseContent);
+            var panelRt = resultLoseContent.GetComponent<RectTransform>();
+            float panelH = panelRt != null ? panelRt.rect.height : 360f;
+            float y = panelH * 0.30f;
+            if (resultLoseMessageText != null)
+            {
+                var rt = resultLoseMessageText.GetComponent<RectTransform>();
+                if (rt != null) { rt.anchoredPosition = new Vector2(0f, y); rt.sizeDelta = new Vector2(420f, 72f); }
+                y -= 86f;
+            }
+            if (resultLoseRetryButton != null)
+            {
+                var rt = resultLoseRetryButton.GetComponent<RectTransform>();
+                if (rt != null) { rt.sizeDelta = new Vector2(280f, 60f); rt.anchoredPosition = new Vector2(0f, y); }
+                y -= 68f;
+                SetButtonLabel(resultLoseRetryButton, "Retry");
+            }
+            if (resultLoseLevelSelectButton != null)
+            {
+                var rt = resultLoseLevelSelectButton.GetComponent<RectTransform>();
+                if (rt != null) { rt.sizeDelta = new Vector2(280f, 60f); rt.anchoredPosition = new Vector2(0f, y); }
+                y -= 68f;
+                SetButtonLabel(resultLoseLevelSelectButton, "Level Select");
+            }
+            if (resultLoseWatchAdButton != null)
+            {
+                var rt = resultLoseWatchAdButton.GetComponent<RectTransform>();
+                if (rt != null) { rt.sizeDelta = new Vector2(280f, 60f); rt.anchoredPosition = new Vector2(0f, y); }
+                SetButtonLabel(resultLoseWatchAdButton, "Watch Ad");
+            }
+            EnsureTextVisibleIn(resultLoseContent);
+        }
+
+        private void ApplyPanelSizing(GameObject panel)
+        {
+            if (panel == null) return;
+            var panelRt = panel.GetComponent<RectTransform>();
+            if (panelRt == null) return;
+
+            Vector2 baseSize = new Vector2(Screen.width, Screen.height);
+            if (resultDialogRoot != null)
+            {
+                var rootRt = resultDialogRoot.GetComponent<RectTransform>();
+                if (rootRt != null && rootRt.rect.width > 0f && rootRt.rect.height > 0f)
+                    baseSize = rootRt.rect.size;
+            }
+
+            float width = Mathf.Clamp(baseSize.x * 0.72f, 520f, 900f);
+            float height = Mathf.Clamp(baseSize.y * 0.42f, 340f, 620f);
+            panelRt.sizeDelta = new Vector2(width, height);
+            panelRt.anchoredPosition = Vector2.zero;
+        }
+
+        private static void SetButtonLabel(Button btn, string label)
+        {
+            if (btn == null || string.IsNullOrEmpty(label)) return;
+            var text = btn.GetComponentInChildren<Text>(true);
+            if (text != null)
+            {
+                text.text = label;
+                text.color = Color.white;
+                text.alignment = TextAnchor.MiddleCenter;
+                text.horizontalOverflow = HorizontalWrapMode.Overflow;
+                text.verticalOverflow = VerticalWrapMode.Overflow;
+                var rt = text.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    // 기존 버튼 텍스트가 하단 얇은 밴드(0.1~0.45)에 고정돼 있어 잘리는 문제를 방지.
+                    rt.anchorMin = Vector2.zero;
+                    rt.anchorMax = Vector2.one;
+                    rt.offsetMin = Vector2.zero;
+                    rt.offsetMax = Vector2.zero;
+                    rt.anchoredPosition = Vector2.zero;
+                }
+                EnsureTextRenders(text);
+            }
+        }
+
+        /// <summary>폰트가 null이면 Text가 아무것도 그리지 않음. 런타임에 내장 폰트 할당.</summary>
+        private static void EnsureTextRenders(Text text)
+        {
+            if (text == null) return;
+            if (text.font == null)
+            {
+                var fallback = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                if (fallback != null) text.font = fallback;
+            }
+            if (text.fontSize <= 0) text.fontSize = 22;
+        }
+
+        private static void EnsureTextVisibleIn(GameObject root)
+        {
+            if (root == null) return;
+            foreach (var text in root.GetComponentsInChildren<Text>(true))
+            {
+                EnsureTextRenders(text);
+                if (text.color.grayscale > 0.85f)
+                    text.color = ResultPanelTextColor;
+            }
         }
 
         private Action _resultWinNext;

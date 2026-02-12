@@ -167,17 +167,23 @@ namespace CircuitOneStroke.Solver
             int n = level.nodes.Length;
             var nodeIdToIndex = new Dictionary<int, int>();
             var indexToNodeId = new int[n];
+            var nodeIsBlocked = new bool[n];
             for (int i = 0; i < n; i++)
             {
                 int id = level.nodes[i].id;
                 nodeIdToIndex[id] = i;
                 indexToNodeId[i] = id;
+                nodeIsBlocked[i] = level.nodes[i].nodeType == NodeType.Blocked;
             }
 
             var adj = new Dictionary<int, List<(int neighbor, EdgeData edge)>>();
             foreach (var e in level.edges)
             {
                 if (!nodeIdToIndex.ContainsKey(e.a) || !nodeIdToIndex.ContainsKey(e.b))
+                    continue;
+                int ia = nodeIdToIndex[e.a];
+                int ib = nodeIdToIndex[e.b];
+                if (nodeIsBlocked[ia] || nodeIsBlocked[ib])
                     continue;
                 if (!adj.ContainsKey(e.a))
                     adj[e.a] = new List<(int, EdgeData)>();

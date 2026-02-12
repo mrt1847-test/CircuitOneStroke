@@ -43,7 +43,7 @@ namespace CircuitOneStroke.View
 
         private void Update()
         {
-            if (Input.GetKeyDown(toggleKey))
+            if (UnityEngine.Input.GetKeyDown(toggleKey))
             {
                 _enabled = !_enabled;
                 Rebuild();
@@ -68,9 +68,13 @@ namespace CircuitOneStroke.View
 
             foreach (var nd in data.nodes)
             {
-                string text = nd.nodeType == NodeType.Bulb
-                    ? (runtime != null && runtime.VisitedBulbs.Contains(nd.id) ? "Bulb(On)" : "Bulb(Off)")
-                    : "Switch";
+                string text;
+                if (nd.nodeType == NodeType.Bulb)
+                    text = runtime != null && runtime.VisitedBulbs.Contains(nd.id) ? "Bulb(On)" : "Bulb(Off)";
+                else if (nd.nodeType == NodeType.Switch)
+                    text = "Switch";
+                else
+                    text = "Blocked";
                 CreateLabel(nodePos[nd.id], text, new Color(0.9f, 0.95f, 1f, 0.95f));
             }
 
@@ -106,9 +110,13 @@ namespace CircuitOneStroke.View
             foreach (var nd in data.nodes)
             {
                 if (i >= _labels.Count) break;
-                string text = nd.nodeType == NodeType.Bulb
-                    ? (runtime != null && runtime.VisitedBulbs.Contains(nd.id) ? "Bulb(On)" : "Bulb(Off)")
-                    : "Switch";
+                string text;
+                if (nd.nodeType == NodeType.Bulb)
+                    text = runtime != null && runtime.VisitedBulbs.Contains(nd.id) ? "Bulb(On)" : "Bulb(Off)";
+                else if (nd.nodeType == NodeType.Switch)
+                    text = "Switch";
+                else
+                    text = "Blocked";
                 UpdateLabel(_labels[i], nodePos[nd.id], text);
                 i++;
             }

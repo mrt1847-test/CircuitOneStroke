@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f3c89f31a1fb564997551251377b871, type: 3}
+  m_Name: GeneratedLevelManifest
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.Data.LevelManifest
+  levels:
+  - {fileID: 11400000, guid: c939ae2f823c7c440a46a7f17c3d178e, type: 2}
+  - {fileID: 11400000, guid: 0e9b770da515bf944a689a79100ab3a4, type: 2}
+  - {fileID: 11400000, guid: 311bba99960f2f046876bb1dea31ff75, type: 2}
+  - {fileID: 11400000, guid: f6205f433d6d60e40946e2362799335c, type: 2}
+  - {fileID: 11400000, guid: 23351791070ae2a4eb427417e64009d5, type: 2}

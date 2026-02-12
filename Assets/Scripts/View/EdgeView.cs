@@ -5,8 +5,8 @@ using CircuitOneStroke.Core;
 namespace CircuitOneStroke.View
 {
     /// <summary>
-    /// 한 엣지의 선 표시. LineRenderer + 다이오드=큰 삼각형+바 마커, 게이트 닫힘=끊긴 선+락 마커.
-    /// 형태로 구분 (색만 의존 금지). 마커는 화면에서 20~28px급으로 인지 가능.
+    /// ???ｌ??????쒖떆. LineRenderer + ?ㅼ씠?ㅻ뱶=???쇨컖??諛?留덉빱, 寃뚯씠???ロ옒=?딄릿 ????留덉빱.
+    /// ?뺥깭濡?援щ텇 (?됰쭔 ?섏〈 湲덉?). 留덉빱???붾㈃?먯꽌 20~28px湲됱쑝濡??몄? 媛??
     /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class EdgeView : MonoBehaviour
@@ -32,16 +32,27 @@ namespace CircuitOneStroke.View
         private bool _lastGateOpen;
         private bool _showReject;
         private float _rejectEndTime;
+        private bool _hintModeActive;
+        private bool _hintCandidate;
+        private bool _curveForReadability;
+        private readonly Vector3[] _curvePoints = new Vector3[9];
         private Transform _diodeMarker;
         private GameObject _gateClosedMarker;
 
         private void Awake()
         {
             _lr = GetComponent<LineRenderer>();
+            if (_lr == null) _lr = GetComponentInChildren<LineRenderer>();
+            if (_lr == null) return;
+            if (_lr.material == null)
+            {
+                var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+                if (shader != null) _lr.material = new Material(shader);
+            }
             _lr.positionCount = 2;
             _lr.useWorldSpace = true;
-            if (_lr.startWidth < 0.2f) _lr.startWidth = 0.22f;
-            if (_lr.endWidth < 0.2f) _lr.endWidth = 0.22f;
+            if (_lr.startWidth < 0.10f) _lr.startWidth = 0.12f;
+            if (_lr.endWidth < 0.10f) _lr.endWidth = 0.12f;
             var r = _lr.GetComponent<Renderer>();
             if (r != null)
                 r.sortingOrder = ViewRenderingConstants.OrderEdges;
@@ -53,6 +64,17 @@ namespace CircuitOneStroke.View
                 return;
             if (GameSettings.Instance != null)
                 GameSettings.Instance.OnChanged += OnSettingsChanged;
+            if (_lr != null && _runtime != null)
+            {
+                if (_lr.material == null)
+                {
+                    var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+                    if (shader != null) _lr.material = new Material(shader);
+                }
+                _lr.enabled = true;
+                UpdateLinePositions();
+                UpdateVisual();
+            }
         }
 
         private void OnDisable()
@@ -65,7 +87,7 @@ namespace CircuitOneStroke.View
 
         private void OnSettingsChanged(GameSettingsData _) => UpdateVisual();
 
-        public void Setup(int edgeId, Vector2 posA, Vector2 posB, Data.DiodeMode diode, int gateGroupId, bool initialGateOpen, LevelRuntime runtime)
+        public void Setup(int edgeId, Vector2 posA, Vector2 posB, Data.DiodeMode diode, int gateGroupId, bool initialGateOpen, LevelRuntime runtime, bool curveForReadability = false)
         {
             EdgeId = edgeId;
             _posA = posA;
@@ -73,6 +95,7 @@ namespace CircuitOneStroke.View
             _diode = diode;
             _gateGroupId = gateGroupId;
             _runtime = runtime;
+            _curveForReadability = curveForReadability;
             _lastGateOpen = gateGroupId < 0 || initialGateOpen;
             _showReject = false;
 
@@ -89,7 +112,14 @@ namespace CircuitOneStroke.View
             UpdateVisual();
         }
 
-        /// <summary>게이트 닫힘: 배경 원(선 가림) + 락 마커. 끊김/잠금 느낌.</summary>
+        public void SetMoveHint(bool isCandidate, bool hintModeActive)
+        {
+            _hintCandidate = isCandidate;
+            _hintModeActive = hintModeActive;
+            UpdateVisual();
+        }
+
+        /// <summary>寃뚯씠???ロ옒: 諛곌꼍 ????媛由? + ??留덉빱. ?딄?/?좉툑 ?먮굦.</summary>
         private void CreateGateMarker()
         {
             _gateClosedMarker = new GameObject("GateMarker");
@@ -124,7 +154,7 @@ namespace CircuitOneStroke.View
             UpdateVisual();
         }
 
-        /// <summary>다이오드: 큰 삼각형+바 마커. 화면에서 20~28px급. 형태로 1초 내 인지.</summary>
+        /// <summary>?ㅼ씠?ㅻ뱶: ???쇨컖??諛?留덉빱. ?붾㈃?먯꽌 20~28px湲? ?뺥깭濡?1珥????몄?.</summary>
         private void CreateDiodeMarker(Data.DiodeMode diode)
         {
             var go = new GameObject("DiodeMarker");
@@ -145,9 +175,10 @@ namespace CircuitOneStroke.View
             _diodeMarker.localScale = Vector3.one * Mathf.Max(ViewRenderingConstants.DiodeMarkerMinScale, 0.4f);
         }
 
-        /// <summary>게이트 닫힘 시 선을 끊김(gap)으로 표시. A---[gap]---B. 두 개 LineRenderer로 실제 끊김.</summary>
+        /// <summary>寃뚯씠???ロ옒 ???좎쓣 ?딄?(gap)?쇰줈 ?쒖떆. A---[gap]---B. ??媛?LineRenderer濡??ㅼ젣 ?딄?.</summary>
         private void UpdateLinePositions()
         {
+            if (_lr == null) return;
             bool gateClosed = _gateGroupId >= 0 && _runtime != null && !_runtime.IsGateOpen(EdgeId) && !_showReject;
             _lr.enabled = !gateClosed;
             if (gateClosed)
@@ -168,9 +199,33 @@ namespace CircuitOneStroke.View
             else
             {
                 if (_gateSegmentsRoot != null) _gateSegmentsRoot.SetActive(false);
-                _lr.positionCount = 2;
-                _lr.SetPosition(0, new Vector3(_posA.x, _posA.y, 0f));
-                _lr.SetPosition(1, new Vector3(_posB.x, _posB.y, 0f));
+                if (_curveForReadability && !_showReject)
+                    DrawCurve(_lr, _posA, _posB);
+                else
+                {
+                    _lr.positionCount = 2;
+                    _lr.SetPosition(0, new Vector3(_posA.x, _posA.y, 0f));
+                    _lr.SetPosition(1, new Vector3(_posB.x, _posB.y, 0f));
+                }
+            }
+        }
+
+        private void DrawCurve(LineRenderer lr, Vector2 a, Vector2 b)
+        {
+            Vector2 mid = Vector2.Lerp(a, b, 0.5f);
+            Vector2 dir = (b - a).normalized;
+            Vector2 perp = new Vector2(-dir.y, dir.x);
+            float sign = (EdgeId % 2 == 0) ? 1f : -1f;
+            float offset = Mathf.Clamp(Vector2.Distance(a, b) * 0.13f, 0.08f, 0.34f);
+            Vector2 control = mid + perp * offset * sign;
+
+            lr.positionCount = _curvePoints.Length;
+            for (int i = 0; i < _curvePoints.Length; i++)
+            {
+                float t = i / (float)(_curvePoints.Length - 1);
+                Vector2 p = (1 - t) * (1 - t) * a + 2 * (1 - t) * t * control + t * t * b;
+                _curvePoints[i] = new Vector3(p.x, p.y, 0f);
+                lr.SetPosition(i, _curvePoints[i]);
             }
         }
 
@@ -230,6 +285,7 @@ namespace CircuitOneStroke.View
 
         private void UpdateVisual()
         {
+            if (_lr == null) return;
             bool colorBlind = GameSettings.Instance?.Data?.colorBlindMode ?? false;
             Color rejectCol = colorBlind ? new Color(0.9f, 0.5f, 0.1f, 1f) : diodeRejectColor;
             Color gateCol = colorBlind ? new Color(0.3f, 0.4f, 0.7f, 1f) : gateClosedColor;
@@ -248,7 +304,16 @@ namespace CircuitOneStroke.View
 
             bool gateClosed = _gateGroupId >= 0 && _runtime != null && !_runtime.IsGateOpen(EdgeId);
             Color lineCol = gateClosed ? gateCol : wire;
+            if (_hintModeActive)
+            {
+                if (_hintCandidate)
+                    lineCol = Color.Lerp(lineCol, wireHighlightColor, 0.45f);
+                else
+                    lineCol = new Color(lineCol.r * 0.45f, lineCol.g * 0.45f, lineCol.b * 0.45f, 0.20f);
+            }
             _lr.startColor = _lr.endColor = lineCol;
+            float width = _hintModeActive ? (_hintCandidate ? 0.16f : 0.09f) : 0.12f;
+            _lr.startWidth = _lr.endWidth = width;
             if (_lr.material != null)
                 _lr.material.color = Color.white;
 
@@ -256,6 +321,8 @@ namespace CircuitOneStroke.View
 
             if (_lrSegmentA != null)
             {
+                _lrSegmentA.startWidth = _lrSegmentA.endWidth = _lr.startWidth;
+                _lrSegmentB.startWidth = _lrSegmentB.endWidth = _lr.startWidth;
                 _lrSegmentA.startColor = _lrSegmentA.endColor = gateCol;
                 _lrSegmentB.startColor = _lrSegmentB.endColor = gateCol;
             }

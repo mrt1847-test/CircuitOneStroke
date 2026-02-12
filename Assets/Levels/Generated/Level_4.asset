@@ -1,0 +1,237 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 718eb855e72b6024182f23df6674a530, type: 3}
+  m_Name: Level_4
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.Data.LevelData
+  levelId: 4
+  nodes:
+  - id: 0
+    pos: {x: -1.5849696, y: -1.3734925}
+    nodeType: 2
+    switchGroupId: 0
+  - id: 1
+    pos: {x: -0.5397794, y: -3.797324}
+    nodeType: 2
+    switchGroupId: 0
+  - id: 2
+    pos: {x: 1.7976618, y: -3.4095232}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 3
+    pos: {x: 3.442677, y: -1.5503578}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 4
+    pos: {x: 3.8026662, y: 0.71702206}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 5
+    pos: {x: 2.65946, y: 2.7887266}
+    nodeType: 1
+    switchGroupId: 1
+  - id: 6
+    pos: {x: 0.54823714, y: 3.7536387}
+    nodeType: 2
+    switchGroupId: 0
+  - id: 7
+    pos: {x: -1.7283896, y: 3.413791}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 8
+    pos: {x: -3.4102607, y: 1.6420358}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 9
+    pos: {x: -3.7969694, y: -0.75906223}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 10
+    pos: {x: -2.7229156, y: -2.7918408}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 11
+    pos: {x: 0.265165, y: -2.0101619}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 12
+    pos: {x: 1.8644809, y: -0.60346955}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 13
+    pos: {x: 1.587893, y: 1.4048202}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 14
+    pos: {x: -0.2671879, y: 2.0500638}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 15
+    pos: {x: -1.8748972, y: 0.6615525}
+    nodeType: 0
+    switchGroupId: 0
+  edges:
+  - id: 0
+    a: 0
+    b: 1
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 1
+    a: 1
+    b: 2
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 2
+    a: 2
+    b: 3
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 3
+    a: 3
+    b: 4
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 4
+    a: 4
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 5
+    a: 5
+    b: 6
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 6
+    a: 6
+    b: 7
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 7
+    a: 7
+    b: 8
+    diode: 2
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 8
+    a: 8
+    b: 9
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 9
+    a: 9
+    b: 10
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 10
+    a: 10
+    b: 11
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 11
+    a: 11
+    b: 12
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 12
+    a: 12
+    b: 13
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 13
+    a: 13
+    b: 14
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 14
+    a: 14
+    b: 15
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 15
+    a: 3
+    b: 14
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 16
+    a: 11
+    b: 15
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 17
+    a: 5
+    b: 13
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 18
+    a: 2
+    b: 12
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 19
+    a: 0
+    b: 12
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 20
+    a: 8
+    b: 10
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 21
+    a: 2
+    b: 9
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 22
+    a: 5
+    b: 7
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 23
+    a: 3
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 24
+    a: 9
+    b: 15
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 25
+    a: 0
+    b: 14
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1

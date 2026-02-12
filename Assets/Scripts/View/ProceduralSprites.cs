@@ -57,13 +57,13 @@ namespace CircuitOneStroke.View
             }
         }
 
-        /// <summary>전류 흐름용 텍스처. LineRenderer Tile 모드 + UV 오프셋 애니메이션.</summary>
+        /// <summary>전류 흐름용 텍스처. 점(spot)이 아닌 연속 스트릭(가운데 밝은 띠). LineRenderer Tile + UV 오프셋으로 "빛이 흐르는 선" 표현.</summary>
         public static Texture2D ElectricFlowTexture
         {
             get
             {
                 if (_electricFlowTex == null)
-                    _electricFlowTex = CreateElectricFlowTexture(64, 8);
+                    _electricFlowTex = CreateElectricFlowTexture(256, 8);
                 return _electricFlowTex;
             }
         }
@@ -182,20 +182,25 @@ namespace CircuitOneStroke.View
             return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
         }
 
+        /// <summary>점 무늬가 아닌 "연속 스트릭" 텍스처: 가운데 밝고 양끝으로 부드럽게 사라지는 띠 한 줄. Repeat + UV 스크롤 시 전기 흐름처럼 보임.</summary>
         private static Texture2D CreateElectricFlowTexture(int w, int h)
         {
             var tex = new Texture2D(w, h);
             tex.wrapMode = TextureWrapMode.Repeat;
             tex.filterMode = FilterMode.Bilinear;
+            float centerX = w * 0.5f;
+            float falloff = w * 0.35f; // 띠가 부드럽게 사라지는 폭 (너무 짧으면 선처럼, 길면 넓게 퍼짐)
             for (int y = 0; y < h; y++)
+            {
+                float vy = 1f - Mathf.Abs((float)y / h - 0.5f) * 2f;
                 for (int x = 0; x < w; x++)
                 {
-                    float t = (float)x / w;
-                    float band = Mathf.Sin(t * Mathf.PI * 8f) * 0.5f + 0.5f;
-                    float center = 1f - Mathf.Abs((float)y / h - 0.5f) * 2f;
-                    float a = band * center * 0.7f + 0.3f;
+                    float dx = Mathf.Abs(x - centerX);
+                    float band = Mathf.Exp(-(dx * dx) / (falloff * falloff));
+                    float a = (band * 0.75f + 0.25f) * vy;
                     tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
                 }
+            }
             tex.Apply();
             return tex;
         }

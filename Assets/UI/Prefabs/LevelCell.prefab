@@ -11,8 +11,9 @@ GameObject:
   - component: {fileID: 5866696720711479589}
   - component: {fileID: 1119237196546960214}
   - component: {fileID: 6626782042895392938}
+  - component: {fileID: 4044079006875906160}
   - component: {fileID: 3157219070570341235}
-  - component: {fileID: 4549935793843261331}
+  - component: {fileID: 7267502114731886133}
   m_Layer: 0
   m_Name: LevelCell
   m_TagString: Untagged
@@ -81,6 +82,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4044079006875906160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 365389052873126808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: beafc5484e047b54cb4958dbdf7453ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CircuitOneStroke.UI.Theme.ThemeRole
+  role: 2
 --- !u!114 &3157219070570341235
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -125,7 +139,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &4549935793843261331
+--- !u!114 &7267502114731886133
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -367,7 +381,7 @@ MonoBehaviour:
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 42
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1

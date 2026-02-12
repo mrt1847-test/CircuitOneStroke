@@ -1,6 +1,8 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using CircuitOneStroke.Data;
@@ -20,13 +22,12 @@ namespace CircuitOneStroke.Editor
         private string _outputFolder = "Assets/Levels/Generated";
         private bool _includeSwitchOverride;
         private bool _useIncludeSwitchOverride;
-        private bool _useGridRangeGenerator;
-        private int _minNodes = 16;
-        private int _maxNodes = 25;
-        private int _maxStatesExpandedBudget = 200000;
-        private int _maxMillisBudget = 100;
-        private int _maxSolutionsBudget = 50;
+        private bool _useAutoTunedGenerator;
+        private bool _syncFallbackResourcesLevels = true;
+        private bool _clearPreviousFallbackBeforeSync = true;
+        private float _forbiddenNodePercent = 0f;
         private bool _advancedFoldout;
+        private int _maxAttempts = 6000;
         private int _solutionCountMin = 1;
         private int _solutionCountMaxEasy = 80;
         private int _solutionCountMaxMedium = 120;
@@ -59,20 +60,16 @@ namespace CircuitOneStroke.Editor
             _tier = (DifficultyTier)EditorGUILayout.EnumPopup("Tier", _tier);
             _targetCount = Mathf.Max(1, EditorGUILayout.IntField("Target Count", _targetCount));
             _seedStart = EditorGUILayout.IntField("Seed Start", _seedStart);
-            _useGridRangeGenerator = EditorGUILayout.Toggle("Use Grid Range (16–25 nodes)", _useGridRangeGenerator);
-            if (_useGridRangeGenerator)
+            _outputFolder = EditorGUILayout.TextField("Output Folder", _outputFolder);
+            _useAutoTunedGenerator = EditorGUILayout.Toggle("Use Auto-Tuned Generator (slow)", _useAutoTunedGenerator);
+            _forbiddenNodePercent = EditorGUILayout.Slider("Forbidden Node %", _forbiddenNodePercent, 0f, 45f);
+            _syncFallbackResourcesLevels = EditorGUILayout.Toggle("Sync Resources/Levels/Level_x", _syncFallbackResourcesLevels);
+            if (_syncFallbackResourcesLevels)
             {
                 EditorGUI.indentLevel++;
-                _minNodes = Mathf.Clamp(EditorGUILayout.IntField("Min Nodes", _minNodes), 16, 25);
-                _maxNodes = Mathf.Clamp(EditorGUILayout.IntField("Max Nodes", _maxNodes), 16, 25);
-                if (_minNodes > _maxNodes) _maxNodes = _minNodes;
-                _maxStatesExpandedBudget = EditorGUILayout.IntField("Max States Expanded", _maxStatesExpandedBudget);
-                _maxMillisBudget = EditorGUILayout.IntField("Max Millis (per level)", _maxMillisBudget);
-                _maxSolutionsBudget = EditorGUILayout.IntField("Max Solutions (budget)", _maxSolutionsBudget);
+                _clearPreviousFallbackBeforeSync = EditorGUILayout.Toggle("  Clear previous fallback assets", _clearPreviousFallbackBeforeSync);
                 EditorGUI.indentLevel--;
             }
-            else
-                _outputFolder = EditorGUILayout.TextField("Output Folder", _outputFolder);
             _useIncludeSwitchOverride = EditorGUILayout.Toggle("Override Include Switch", _useIncludeSwitchOverride);
             if (_useIncludeSwitchOverride)
                 _includeSwitchOverride = EditorGUILayout.Toggle("  Include Switch", _includeSwitchOverride);
@@ -81,6 +78,7 @@ namespace CircuitOneStroke.Editor
             if (_advancedFoldout)
             {
                 EditorGUI.indentLevel++;
+                _maxAttempts = Mathf.Max(100, EditorGUILayout.IntField("Max attempts", _maxAttempts));
                 _solutionCountMin = EditorGUILayout.IntField("Solution count min", _solutionCountMin);
                 _solutionCountMaxEasy = EditorGUILayout.IntField("Solution count max (Easy)", _solutionCountMaxEasy);
                 _solutionCountMaxMedium = EditorGUILayout.IntField("Solution count max (Medium)", _solutionCountMaxMedium);
@@ -100,35 +98,50 @@ namespace CircuitOneStroke.Editor
             EditorGUILayout.Space(8);
             if (GUILayout.Button("Generate & Save", GUILayout.Height(32)))
                 DoGenerateAndSave();
+            if (GUILayout.Button("Ping Runtime Manifest", GUILayout.Height(22)))
+            {
+                var manifest = EnsureManifest();
+                if (manifest != null)
+                {
+                    EditorGUIUtility.PingObject(manifest);
+                    Selection.activeObject = manifest;
+                }
+            }
 
             EditorGUILayout.EndScrollView();
         }
 
         private bool PassesFilterCustom(DifficultyTier tier, SolverResult result)
         {
-            if (!result.solvable || result.solutionCount < _solutionCountMin)
-                return false;
+            return string.IsNullOrEmpty(GetRejectReasonCustom(tier, result));
+        }
+
+        private string GetRejectReasonDefault(SolverResult result)
+        {
+            if (!result.solvableWithinBudget) return "default_not_solved_within_budget";
+            if (result.solutionsFoundWithinBudget < 1) return "default_zero_solutions_within_budget";
+            return null;
+        }
+
+        private string GetRejectReasonCustom(DifficultyTier tier, SolverResult result)
+        {
+            bool solvable = result.solvable || result.solvableWithinBudget;
+            int solutions = result.solutionCount > 0 ? result.solutionCount : result.solutionsFoundWithinBudget;
+            if (!solvable) return "custom_unsolvable";
+            if (solutions < _solutionCountMin) return "custom_solution_count_too_low";
             int maxCount = tier == DifficultyTier.Easy ? _solutionCountMaxEasy : tier == DifficultyTier.Medium ? _solutionCountMaxMedium : _solutionCountMaxHard;
-            if (result.solutionCount > maxCount)
-                return false;
+            if (solutions > maxCount) return "custom_solution_count_too_high";
             float branchMin = tier == DifficultyTier.Easy ? _earlyBranchingMinEasy : tier == DifficultyTier.Medium ? _earlyBranchingMinMedium : _earlyBranchingMinHard;
-            if (result.earlyBranching < branchMin)
-                return false;
+            if (result.earlyBranching < branchMin) return "custom_early_branching_too_low";
             float depthMin = tier == DifficultyTier.Easy ? _deadEndDepthMinEasy : tier == DifficultyTier.Medium ? _deadEndDepthMinMedium : _deadEndDepthMinHard;
             float depthMax = tier == DifficultyTier.Easy ? _deadEndDepthMaxEasy : tier == DifficultyTier.Medium ? _deadEndDepthMaxMedium : _deadEndDepthMaxHard;
-            if (result.deadEndDepthAvg < depthMin || result.deadEndDepthAvg > depthMax)
-                return false;
-            return true;
+            if (result.deadEndDepthAvg < depthMin) return "custom_dead_end_depth_too_low";
+            if (result.deadEndDepthAvg > depthMax) return "custom_dead_end_depth_too_high";
+            return null;
         }
 
         private void DoGenerateAndSave()
         {
-            if (_useGridRangeGenerator)
-            {
-                DoGenerateAndSaveGridRange();
-                return;
-            }
-
             if (string.IsNullOrEmpty(_outputFolder))
             {
                 Debug.LogError("Output folder is empty.");
@@ -142,32 +155,125 @@ namespace CircuitOneStroke.Editor
             int seed = _seedStart;
             int levelId = 1;
             bool useCustomFilter = _advancedFoldout;
+            int attempts = 0;
+            int maxAttempts = Mathf.Max(_targetCount * 50, _maxAttempts);
+            int rejectedUnsolvable = 0;
+            int rejectedFilter = 0;
+            var failReasons = new Dictionary<string, int>();
 
-            while (savedLevels.Count < _targetCount)
+            try
             {
-                var genResult = LevelGenerator.GenerateWithMetadata(_tier, seed, includeSwitch);
-                var result = LevelSolver.Solve(genResult.level, LevelSolver.MaxSolutionsDefault, LevelSolver.MaxStatesExpandedDefault);
-
-                bool pass = useCustomFilter ? PassesFilterCustom(_tier, result) : LevelGenerator.PassesFilter(_tier, result);
-                if (pass)
+                while (savedLevels.Count < _targetCount && attempts < maxAttempts)
                 {
-                    genResult.level.levelId = levelId;
-                    string assetPath = $"{_outputFolder}/Level_{levelId}.asset";
-                    AssetDatabase.CreateAsset(genResult.level, assetPath);
+                    attempts++;
+                    if (EditorUtility.DisplayCancelableProgressBar(
+                        "Level Bake",
+                        $"Generating... saved {savedLevels.Count}/{_targetCount}, attempts {attempts}/{maxAttempts}",
+                        attempts / (float)maxAttempts))
+                    {
+                        Debug.LogWarning("[LevelBakeTool] Cancelled by user.");
+                        break;
+                    }
 
-                    string metaPath = $"{_outputFolder}/Level_{levelId}_meta.json";
-                    string metaJson = $"{{\"seed\":{seed},\"templateName\":\"{genResult.templateName}\",\"tier\":\"{_tier}\",\"solutionCount\":{result.solutionCount},\"nodesExpanded\":{result.nodesExpanded},\"earlyBranching\":{result.earlyBranching:F2},\"deadEndDepthAvg\":{result.deadEndDepthAvg:F2}}}";
-                    File.WriteAllText(metaPath, metaJson);
+                    LevelData level = null;
+                    string templateName = "AutoTuned";
+                    if (_useAutoTunedGenerator)
+                    {
+                        level = LevelGenerator.GenerateWithSuccessRateTarget(_tier, seed, out int tunedN, out _, out _, out _, _forbiddenNodePercent * 0.01f);
+                        templateName = $"AutoTuned_N{tunedN}";
+                    }
+                    else
+                    {
+                        DifficultyProfile.GetNRange(_tier, out int rangeMin, out int rangeMax);
+                        var rng = new System.Random(seed);
+                        int pickedNodeCount = rangeMin + rng.Next(Mathf.Max(1, rangeMax - rangeMin + 1));
+                        bool includeSwitchValue = _useIncludeSwitchOverride ? includeSwitch.GetValueOrDefault() : (_tier != DifficultyTier.Easy);
+                        var opts = new GenerationOptions
+                        {
+                            IncludeSwitch = includeSwitchValue,
+                            SwitchCount = includeSwitchValue ? 1 : 0,
+                            RequireNormalHardVariety = _tier != DifficultyTier.Easy,
+                            ForbiddenNodeRatio = _forbiddenNodePercent * 0.01f
+                        };
+                        level = LevelGenerator.GenerateBase(pickedNodeCount, seed, opts);
+                        templateName = $"Base_N{pickedNodeCount}";
+                    }
+                    if (level == null)
+                    {
+                        string primaryReject = LevelGenerator.LastGenerateBasePrimaryRejectReason;
+                        string summaryReject = LevelGenerator.LastGenerateBaseRejectSummary;
+                        if (!string.IsNullOrEmpty(primaryReject) && !string.Equals(primaryReject, "none", System.StringComparison.Ordinal))
+                            CountFailReason(failReasons, $"generator_null:{primaryReject}");
+                        else
+                            CountFailReason(failReasons, "generator_returned_null");
+                        if (!string.IsNullOrEmpty(summaryReject) && !string.Equals(summaryReject, "none", System.StringComparison.Ordinal) && attempts <= 8)
+                            Debug.Log($"[LevelBakeTool] generator_null_reject_summary: {summaryReject}");
+                        seed++;
+                        continue;
+                    }
 
-                    savedLevels.Add(genResult.level);
-                    levelId++;
-                    Debug.Log($"Saved level {savedLevels.Count}: seed={seed}, template={genResult.templateName}, solutions={result.solutionCount}");
+                    // Always enforce difficulty node-count range in bake output.
+                    DifficultyProfile.GetNRange(_tier, out int enforceMin, out int enforceMax);
+                    int generatedNodeCount = level.nodes != null ? level.nodes.Length : 0;
+                    if (generatedNodeCount < enforceMin || generatedNodeCount > enforceMax)
+                    {
+                        CountFailReason(failReasons, $"node_count_out_of_range({generatedNodeCount}, expected {enforceMin}-{enforceMax})");
+                        Object.DestroyImmediate(level);
+                        seed++;
+                        continue;
+                    }
+
+                    if (_useAutoTunedGenerator && _useIncludeSwitchOverride && includeSwitch.HasValue)
+                        ApplySwitchOverride(level, includeSwitch.Value, seed);
+
+                    var result = LevelSolver.Solve(level, LevelSolver.MaxSolutionsDefault, LevelSolver.MaxStatesExpandedDefault, 120);
+
+                    string filterRejectReason = useCustomFilter
+                        ? GetRejectReasonCustom(_tier, result)
+                        : GetRejectReasonDefault(result);
+                    bool pass = string.IsNullOrEmpty(filterRejectReason);
+                    if (pass)
+                    {
+                        level.levelId = levelId;
+                        string assetPath = $"{_outputFolder}/Level_{levelId}.asset";
+                        if (AssetDatabase.LoadAssetAtPath<LevelData>(assetPath) != null)
+                            AssetDatabase.DeleteAsset(assetPath);
+                        AssetDatabase.CreateAsset(level, assetPath);
+
+                        string metaPath = $"{_outputFolder}/Level_{levelId}_meta.json";
+                        int solutions = result.solutionCount > 0 ? result.solutionCount : result.solutionsFoundWithinBudget;
+                        string metaJson = $"{{\"seed\":{seed},\"templateName\":\"{templateName}\",\"tier\":\"{_tier}\",\"solutionCount\":{solutions},\"nodesExpanded\":{result.nodesExpanded},\"earlyBranching\":{result.earlyBranching:F2},\"deadEndDepthAvg\":{result.deadEndDepthAvg:F2},\"forbiddenNodePercent\":{_forbiddenNodePercent:F1}}}";
+                        File.WriteAllText(metaPath, metaJson);
+
+                        savedLevels.Add(level);
+                        levelId++;
+                        Debug.Log($"Saved level {savedLevels.Count}: seed={seed}, template={templateName}, solutions={solutions}");
+                    }
+                    else
+                    {
+                        bool solvable = result.solvable || result.solvableWithinBudget;
+                        if (!solvable) rejectedUnsolvable++;
+                        else rejectedFilter++;
+                        if (!solvable)
+                            CountFailReason(failReasons, "solver_unsolvable_within_budget");
+                        else if (!string.IsNullOrEmpty(filterRejectReason))
+                            CountFailReason(failReasons, filterRejectReason);
+                        else
+                            CountFailReason(failReasons, "custom_or_default_filter_rejected");
+                        Object.DestroyImmediate(level);
+                    }
+                    seed++;
                 }
-                else
-                {
-                    Object.DestroyImmediate(genResult.level);
-                }
-                seed++;
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+
+            if (savedLevels.Count < _targetCount)
+            {
+                string top3 = BuildTopFailReasonsSummary(failReasons, attempts, 3);
+                Debug.LogWarning($"[LevelBakeTool] Stopped before target. saved={savedLevels.Count}/{_targetCount}, attempts={attempts}/{maxAttempts}, unsolvableRejects={rejectedUnsolvable}, filterRejects={rejectedFilter}, topFailReasons={top3}. Relax filters or raise Max attempts.");
             }
 
             LevelManifest manifest = EnsureManifest();
@@ -177,63 +283,10 @@ namespace CircuitOneStroke.Editor
                 EditorUtility.SetDirty(manifest);
                 AssetDatabase.SaveAssets();
             }
+            if (_syncFallbackResourcesLevels)
+                SyncFallbackResourcesLevels(savedLevels, _clearPreviousFallbackBeforeSync);
             AssetDatabase.Refresh();
-            Debug.Log($"Level Bake complete: {savedLevels.Count} levels saved to {_outputFolder}. Manifest at {ManifestResourcesPath} (Resources).");
-        }
-
-        private void DoGenerateAndSaveGridRange()
-        {
-            EnsureFolderExists("Assets/Resources");
-            EnsureFolderExists("Assets/Resources/Levels");
-            string tierFolder = $"Assets/Resources/Levels/Generated/{_tier}";
-            EnsureFolderExists("Assets/Resources/Levels/Generated");
-            EnsureFolderExists(tierFolder);
-
-            var savedLevels = new List<LevelData>();
-            int seed = _seedStart;
-            int levelId = 1;
-
-            while (savedLevels.Count < _targetCount)
-            {
-                var level = GridRangeGenerator.Generate(_minNodes, _maxNodes, _tier, seed);
-                var result = LevelSolver.Solve(level, _maxSolutionsBudget, _maxStatesExpandedBudget, _maxMillisBudget);
-
-                bool pass = result.solvableWithinBudget && result.solutionsFoundWithinBudget >= 1;
-                if (result.status == SolverStatus.BudgetExceeded && result.solutionsFoundWithinBudget == 0)
-                    pass = false;
-
-                if (pass)
-                {
-                    level.levelId = levelId;
-                    string assetPath = $"{tierFolder}/Level_{levelId}.asset";
-                    AssetDatabase.CreateAsset(level, assetPath);
-
-                    int n = level.nodes != null ? level.nodes.Length : 0;
-                    var (rows, cols) = GridRangeGenerator.GetGridSize(n);
-                    string metaJson = $"{{\"seed\":{seed},\"tier\":\"{_tier}\",\"nodeCount\":{n},\"gridRows\":{rows},\"gridCols\":{cols},\"solutionsFoundWithinBudget\":{result.solutionsFoundWithinBudget},\"nodesExpanded\":{result.nodesExpanded},\"earlyBranchingApprox\":{result.earlyBranchingApprox:F2},\"deadEndDepthAvgApprox\":{result.deadEndDepthAvgApprox:F2},\"status\":\"{result.status}\"}}";
-                    string metaPath = $"{tierFolder}/Level_{levelId}_meta.json";
-                    File.WriteAllText(metaPath, metaJson);
-
-                    savedLevels.Add(level);
-                    levelId++;
-                    Debug.Log($"Saved Grid level {savedLevels.Count}: N={n}, seed={seed}, solutionsFound={result.solutionsFoundWithinBudget}, expanded={result.nodesExpanded}");
-                }
-                else
-                {
-                    Object.DestroyImmediate(level);
-                }
-                seed++;
-            }
-
-            LevelManifest manifest = EnsureManifestForTier(_tier);
-            if (manifest != null)
-            {
-                manifest.levels = savedLevels.ToArray();
-                EditorUtility.SetDirty(manifest);
-                AssetDatabase.SaveAssets();
-            }
-            AssetDatabase.Refresh();
-            Debug.Log($"Grid Range Bake complete: {savedLevels.Count} levels saved to {tierFolder}. Manifest at {GetManifestPathForTier(_tier)} (Resources).");
+            Debug.Log($"Level Bake complete: {savedLevels.Count} levels saved to {_outputFolder}. Runtime manifest updated at {ManifestResourcesPath}.");
         }
 
         private void EnsureFolderExists(string folder)
@@ -266,11 +319,7 @@ namespace CircuitOneStroke.Editor
         }
 
         private const string ManifestResourcesPath = "Assets/Resources/Levels/GeneratedLevelManifest.asset";
-
-        private static string GetManifestPathForTier(DifficultyTier tier)
-        {
-            return $"Assets/Resources/Levels/GeneratedLevelManifest_{tier}.asset";
-        }
+        private const string RuntimeFallbackFolder = "Assets/Resources/Levels";
 
         private LevelManifest EnsureManifest()
         {
@@ -286,19 +335,94 @@ namespace CircuitOneStroke.Editor
             return manifest;
         }
 
-        private LevelManifest EnsureManifestForTier(DifficultyTier tier)
+        private void SyncFallbackResourcesLevels(List<LevelData> sourceLevels, bool clearPrevious)
         {
-            EnsureFolderExists("Assets/Resources");
-            EnsureFolderExists("Assets/Resources/Levels");
-            string path = GetManifestPathForTier(tier);
-            var manifest = AssetDatabase.LoadAssetAtPath<LevelManifest>(path);
-            if (manifest == null)
+            EnsureFolderExists(RuntimeFallbackFolder);
+            if (clearPrevious)
             {
-                manifest = ScriptableObject.CreateInstance<LevelManifest>();
-                manifest.levels = new LevelData[0];
-                AssetDatabase.CreateAsset(manifest, path);
+                string[] guids = AssetDatabase.FindAssets("t:LevelData", new[] { RuntimeFallbackFolder });
+                var rx = new Regex(@"[/\\]Level_\d+\.asset$", RegexOptions.IgnoreCase);
+                foreach (string guid in guids)
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!rx.IsMatch(path)) continue;
+                    AssetDatabase.DeleteAsset(path);
+                }
             }
-            return manifest;
+
+            for (int i = 0; i < sourceLevels.Count; i++)
+            {
+                LevelData src = sourceLevels[i];
+                if (src == null) continue;
+                int id = i + 1;
+                string assetPath = $"{RuntimeFallbackFolder}/Level_{id}.asset";
+                if (AssetDatabase.LoadAssetAtPath<LevelData>(assetPath) != null)
+                    AssetDatabase.DeleteAsset(assetPath);
+
+                var clone = Object.Instantiate(src);
+                clone.levelId = id;
+                AssetDatabase.CreateAsset(clone, assetPath);
+            }
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[LevelBakeTool] Synced fallback resources: {sourceLevels.Count} level assets in {RuntimeFallbackFolder}.");
+        }
+
+        private static void ApplySwitchOverride(LevelData level, bool includeSwitch, int seed)
+        {
+            if (level?.nodes == null || level.nodes.Length == 0) return;
+
+            if (!includeSwitch)
+            {
+                for (int i = 0; i < level.nodes.Length; i++)
+                {
+                    if (level.nodes[i].nodeType == NodeType.Switch)
+                    {
+                        level.nodes[i].nodeType = NodeType.Bulb;
+                        level.nodes[i].switchGroupId = 0;
+                    }
+                }
+                return;
+            }
+
+            bool hasSwitch = false;
+            for (int i = 0; i < level.nodes.Length; i++)
+            {
+                if (level.nodes[i].nodeType == NodeType.Switch)
+                {
+                    hasSwitch = true;
+                    break;
+                }
+            }
+            if (hasSwitch) return;
+
+            var rng = new System.Random(seed ^ 0x5f3759df);
+            int pick = rng.Next(level.nodes.Length);
+            level.nodes[pick].nodeType = NodeType.Switch;
+            level.nodes[pick].switchGroupId = 1;
+        }
+
+        private static void CountFailReason(Dictionary<string, int> counter, string reason)
+        {
+            if (counter == null || string.IsNullOrEmpty(reason)) return;
+            if (!counter.TryGetValue(reason, out int count)) count = 0;
+            counter[reason] = count + 1;
+        }
+
+        private static string BuildTopFailReasonsSummary(Dictionary<string, int> counter, int attempts, int topK)
+        {
+            if (counter == null || counter.Count == 0 || attempts <= 0) return "none";
+            var ranked = counter
+                .OrderByDescending(kv => kv.Value)
+                .ThenBy(kv => kv.Key)
+                .Take(Mathf.Max(1, topK))
+                .ToList();
+            var parts = new List<string>(ranked.Count);
+            for (int i = 0; i < ranked.Count; i++)
+            {
+                float ratio = ranked[i].Value * 100f / attempts;
+                parts.Add($"{ranked[i].Key}:{ranked[i].Value}({ratio:F1}%)");
+            }
+            return string.Join(", ", parts);
         }
     }
 }

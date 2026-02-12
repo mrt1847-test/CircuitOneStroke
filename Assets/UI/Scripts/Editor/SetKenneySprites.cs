@@ -32,7 +32,7 @@ namespace CircuitOneStroke.Editor
                 if (importer.textureType == TextureImporterType.Sprite) continue;
 
                 importer.textureType = TextureImporterType.Sprite;
-                importer.spritePixelsToUnits = 100;
+                importer.spritePixelsPerUnit = 100;
                 importer.SaveAndReimport();
                 count++;
             }

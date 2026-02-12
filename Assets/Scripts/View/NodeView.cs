@@ -6,9 +6,9 @@ using CircuitOneStroke.Core;
 namespace CircuitOneStroke.View
 {
     /// <summary>
-    /// 한 노드의 2D 표시. SpriteRenderer + Collider2D 필요.
-    /// 전구=BulbShape 아이콘 + On/Off 글로우, 스위치=SwitchLever 아이콘. 형태로 구분.
-    /// 스프라이트가 null이면 procedural fallback 적용 (가시성 보장).
+    /// ???몃뱶??2D ?쒖떆. SpriteRenderer + Collider2D ?꾩슂.
+    /// ?꾧뎄=BulbShape ?꾩씠肄?+ On/Off 湲濡쒖슦, ?ㅼ쐞移?SwitchLever ?꾩씠肄? ?뺥깭濡?援щ텇.
+    /// ?ㅽ봽?쇱씠?멸? null?대㈃ procedural fallback ?곸슜 (媛?쒖꽦 蹂댁옣).
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     [RequireComponent(typeof(Collider2D))]
@@ -22,6 +22,9 @@ namespace CircuitOneStroke.View
         [Header("Switch")]
         [SerializeField] private Color switchColor = new Color(0.55f, 0.45f, 0.85f, 1f);
         [SerializeField] private Color switchHighlightColor = new Color(0.7f, 0.6f, 1f, 1f);
+        [Header("Blocked")]
+        [SerializeField] private Color blockedColor = new Color(0.22f, 0.22f, 0.24f, 1f);
+        [SerializeField] private Color blockedHintColor = new Color(0.38f, 0.38f, 0.42f, 1f);
         [Header("Touch (mobile)")]
         [Tooltip("Collider radius = sprite half-size * this. >1 for easier touch on small nodes.")]
         [SerializeField] private float colliderRadiusScale = 1.35f;
@@ -34,6 +37,8 @@ namespace CircuitOneStroke.View
         private NodeType _nodeType;
         private bool _visited;
         private bool _resumeHighlight;
+        private bool _hintModeActive;
+        private bool _hintCandidate;
         private float _baseScaleFromSettings = 1f;
         private Coroutine _resumePulseCoroutine;
 
@@ -81,7 +86,7 @@ namespace CircuitOneStroke.View
                 transform.localScale = new Vector3(scale, scale, 1f);
         }
 
-        /// <summary>스프라이트가 null이면 procedural fallback. 가시성 보장.</summary>
+        /// <summary>?ㅽ봽?쇱씠?멸? null?대㈃ procedural fallback. 媛?쒖꽦 蹂댁옣.</summary>
         private void EnsureBaseSprite()
         {
             if (_sr == null) return;
@@ -93,7 +98,7 @@ namespace CircuitOneStroke.View
             _sr.sortingOrder = ViewRenderingConstants.OrderNodes;
         }
 
-        /// <summary>전구=BulbShape, 스위치=SwitchLever. 형태로 구분.</summary>
+        /// <summary>?꾧뎄=BulbShape, ?ㅼ쐞移?SwitchLever. ?뺥깭濡?援щ텇.</summary>
         private void EnsureSpriteAndIcon()
         {
             if (_sr == null) return;
@@ -112,11 +117,13 @@ namespace CircuitOneStroke.View
 
             if (_nodeType == NodeType.Bulb)
                 _iconSr.sprite = ProceduralSprites.BulbShape;
-            else
+            else if (_nodeType == NodeType.Switch)
                 _iconSr.sprite = ProceduralSprites.SwitchLever;
+            else
+                _iconSr.sprite = ProceduralSprites.Circle;
         }
 
-        /// <summary>LevelLoader가 스폰 시 호출.</summary>
+        /// <summary>LevelLoader媛 ?ㅽ룿 ???몄텧.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
             if (_sr == null)
@@ -141,14 +148,14 @@ namespace CircuitOneStroke.View
             col.radius = Mathf.Max(0.2f, size * colliderRadiusScale);
         }
 
-        /// <summary>전구 방문 여부.</summary>
+        /// <summary>?꾧뎄 諛⑸Ц ?щ?.</summary>
         public void SetVisited(bool visited)
         {
             _visited = visited;
             ApplyVisual();
         }
 
-        /// <summary>스위치 강조 토글.</summary>
+        /// <summary>?ㅼ쐞移?媛뺤“ ?좉?.</summary>
         public void SetHighlight(bool highlight)
         {
             if (_sr == null) return;
@@ -160,7 +167,14 @@ namespace CircuitOneStroke.View
             }
         }
 
-        /// <summary>Paused 시 재개 지점(꼬리 노드) 표시. 켜면 스케일 펄스, 끄면 원래 스케일 복원.</summary>
+        public void SetMoveHint(bool isCandidate, bool hintModeActive)
+        {
+            _hintCandidate = isCandidate;
+            _hintModeActive = hintModeActive;
+            ApplyVisual();
+        }
+
+        /// <summary>Paused ???ш컻 吏??瑗щ━ ?몃뱶) ?쒖떆. 耳쒕㈃ ?ㅼ????꾩뒪, ?꾨㈃ ?먮옒 ?ㅼ???蹂듭썝.</summary>
         public void SetResumeHighlight(bool on)
         {
             if (_resumeHighlight == on) return;
@@ -194,7 +208,7 @@ namespace CircuitOneStroke.View
             return h >= 0.5f && h <= 0.9f;
         }
 
-        /// <summary>전구=방문 시 켜진 색, 스위치=고정 색. 베이스+아이콘 동기화.</summary>
+        /// <summary>?꾧뎄=諛⑸Ц ??耳쒖쭊 ?? ?ㅼ쐞移?怨좎젙 ?? 踰좎씠???꾩씠肄??숆린??</summary>
         private void ApplyVisual()
         {
             if (_sr == null) return;
@@ -202,16 +216,51 @@ namespace CircuitOneStroke.View
             {
                 Color off = IsBluePurpleHue(bulbOffColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : bulbOffColor;
                 Color on = IsBluePurpleHue(bulbOnColor) ? new Color(0.35f, 0.65f, 1f, 1f) : bulbOnColor;
-                _sr.color = _visited ? on : off;
+                Color baseColor = _visited ? on : off;
+                if (_hintModeActive)
+                {
+                    if (_hintCandidate)
+                        baseColor = Color.Lerp(baseColor, Color.white, 0.30f);
+                    else
+                        baseColor = new Color(baseColor.r * 0.45f, baseColor.g * 0.45f, baseColor.b * 0.45f, 0.28f);
+                }
+                _sr.color = baseColor;
                 if (_iconSr != null)
-                    _iconSr.color = _visited ? new Color(1f, 1f, 0.95f, 1f) : new Color(0.9f, 0.9f, 1f, 1f);
+                {
+                    Color icon = _visited ? new Color(1f, 1f, 0.95f, 1f) : new Color(0.9f, 0.9f, 1f, 1f);
+                    if (_hintModeActive && !_hintCandidate)
+                        icon = new Color(icon.r * 0.45f, icon.g * 0.45f, icon.b * 0.45f, 0.28f);
+                    _iconSr.color = icon;
+                }
+            }
+            else if (_nodeType == NodeType.Switch)
+            {
+                Color sc = IsBluePurpleHue(switchColor) ? new Color(0.55f, 0.45f, 0.85f, 1f) : switchColor;
+                if (_hintModeActive)
+                {
+                    if (_hintCandidate) sc = Color.Lerp(sc, Color.white, 0.25f);
+                    else sc = new Color(sc.r * 0.45f, sc.g * 0.45f, sc.b * 0.45f, 0.28f);
+                }
+                _sr.color = sc;
+                if (_iconSr != null)
+                {
+                    Color icon = Color.white;
+                    if (_hintModeActive && !_hintCandidate)
+                        icon = new Color(0.45f, 0.45f, 0.45f, 0.28f);
+                    _iconSr.color = icon;
+                }
             }
             else
             {
-                Color sc = IsBluePurpleHue(switchColor) ? new Color(0.55f, 0.45f, 0.85f, 1f) : switchColor;
-                _sr.color = sc;
+                Color bc = blockedColor;
+                if (_hintModeActive)
+                {
+                    if (_hintCandidate) bc = blockedHintColor;
+                    else bc = new Color(bc.r * 0.5f, bc.g * 0.5f, bc.b * 0.5f, 0.35f);
+                }
+                _sr.color = bc;
                 if (_iconSr != null)
-                    _iconSr.color = Color.white;
+                    _iconSr.color = new Color(0f, 0f, 0f, _hintModeActive && !_hintCandidate ? 0.15f : 0.45f);
             }
         }
     }
