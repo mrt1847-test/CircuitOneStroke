@@ -999,6 +999,8 @@ namespace CircuitOneStroke.Generation
                     usedLayoutName = layout.name;
                     templateApplied = true;
 
+                    bool exactLayout = IsExactLayout(layout.name);
+
                     BuildShapePreservingSlotPermutation(layout.name, n, rng, slotPerm);
                     for (int j = 0; j < n; j++)
                         positions[j] = layout.slots[slotPerm[j]];
@@ -1007,10 +1009,18 @@ namespace CircuitOneStroke.Generation
                         ? AestheticEvaluator.AverageEdgeLength(edgeList, positions)
                         : 1.5f;
                     if (avgLen < 0.1f) avgLen = 1.5f;
-                    float jitterMax = JitterMaxFractionOfAvgEdge * avgLen;
+                    float jitterMax = exactLayout ? 0f : (JitterMaxFractionOfAvgEdge * avgLen);
+                    float rotationDeg = 0f, shearX = 0f, shearY = 0f, radialWarp = 0f;
 
-                    GetLayoutVariantParams(layout.name, rng, out float rotationDeg, out float shearX, out float shearY, out float radialWarp);
-                    ApplyLayoutVariant(positions, transformed, rotationDeg, shearX, shearY, radialWarp, rng, jitterMax);
+                    if (exactLayout)
+                    {
+                        ApplyLayoutVariant(positions, transformed, 0f, 0f, 0f, 0f, rng, 0f);
+                    }
+                    else
+                    {
+                        GetLayoutVariantParams(layout.name, rng, out rotationDeg, out shearX, out shearY, out radialWarp);
+                        ApplyLayoutVariant(positions, transformed, rotationDeg, shearX, shearY, radialWarp, rng, jitterMax);
+                    }
 
                     float minDist = AestheticEvaluator.MinNodeDistance(transformed, n);
                     if (minDist < MinNodeDistance) continue;
@@ -1029,14 +1039,36 @@ namespace CircuitOneStroke.Generation
                         float localScore = AestheticEvaluator.Score(edgeList, outPos, n);
                         accepted.Add((layout.name, localScore, outPos));
                         if (EnableLayoutDebugLog)
-                            UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} rot={rotationDeg:F1} shear=({shearX:F2},{shearY:F2}) warp={radialWarp:F2} applied=true minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
+                        {
+                            if (exactLayout)
+                                UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} exact=true applied=true minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
+                            else
+                                UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} rot={rotationDeg:F1} shear=({shearX:F2},{shearY:F2}) warp={radialWarp:F2} applied=true minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
+                        }
                     }
 
                     if (EnableLayoutDebugLog && tryCount == retriesPerTemplate - 1)
-                        UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} rot={rotationDeg:F1} shear=({shearX:F2},{shearY:F2}) warp={radialWarp:F2} applied=false minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
+                    {
+                        if (exactLayout)
+                            UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} exact=true applied=false minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
+                        else
+                            UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} rot={rotationDeg:F1} shear=({shearX:F2},{shearY:F2}) warp={radialWarp:F2} applied=false minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
+                    }
                 }
             }
             if (accepted.Count == 0) return null;
+
+            // Keep the 4x4 knight graph silhouette as-authored when available.
+            var exactAccepted = accepted.FindAll(a => IsExactLayout(a.name));
+            if (exactAccepted.Count > 0)
+            {
+                var exactChoice = exactAccepted[rng.Next(exactAccepted.Count)];
+                usedLayoutName = exactChoice.name;
+                templateApplied = true;
+                if (EnableLayoutDebugLog)
+                    UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} accepted={accepted.Count} exactPicked={usedLayoutName}");
+                return exactChoice.pos;
+            }
 
             accepted.Sort((a, b) => b.score.CompareTo(a.score));
             int topCount = Mathf.Min(6, accepted.Count);
@@ -1063,6 +1095,11 @@ namespace CircuitOneStroke.Generation
         private static void BuildShapePreservingSlotPermutation(string layoutName, int n, System.Random rng, int[] slotPerm)
         {
             if (slotPerm == null || slotPerm.Length < n) return;
+            if (IsExactLayout(layoutName))
+            {
+                for (int i = 0; i < n; i++) slotPerm[i] = i;
+                return;
+            }
             bool radial = IsRadialLayout(layoutName);
             if (radial)
             {
@@ -1099,7 +1136,13 @@ namespace CircuitOneStroke.Generation
                 || layoutName == "StarSpoke"
                 || layoutName == "DoubleRing"
                 || layoutName == "ConcentricPolygon"
+                || layoutName == "PentagonSpiral"
                 || layoutName == "TwoCluster";
+        }
+
+        private static bool IsExactLayout(string layoutName)
+        {
+            return layoutName == "KnightTour4x4Exact";
         }
 
         private static void GetLayoutVariantParams(string layoutName, System.Random rng, out float rotationDeg, out float shearX, out float shearY, out float radialWarp)

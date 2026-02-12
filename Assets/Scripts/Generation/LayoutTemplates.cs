@@ -23,10 +23,15 @@ namespace CircuitOneStroke.Generation
             var list = new List<LayoutTemplate>();
             if (n < 4) return list;
 
+            if (n == 16)
+                list.Add(new LayoutTemplate { name = "KnightTour4x4Exact", nodeCount = n, slots = KnightTour4x4ExactLayout() });
+
             list.Add(new LayoutTemplate { name = "Ring", nodeCount = n, slots = Ring(n) });
             list.Add(new LayoutTemplate { name = "StarSpoke", nodeCount = n, slots = StarSpokeLayout(n) });
             list.Add(new LayoutTemplate { name = "DoubleRing", nodeCount = n, slots = DoubleRingLayout(n) });
             list.Add(new LayoutTemplate { name = "ConcentricPolygon", nodeCount = n, slots = ConcentricPolygonLayout(n) });
+            if (n >= 10)
+                list.Add(new LayoutTemplate { name = "PentagonSpiral", nodeCount = n, slots = PentagonSpiralLayout(n) });
             list.Add(new LayoutTemplate { name = "Layered", nodeCount = n, slots = LayeredLayout(n) });
 
             if (n >= 8)
@@ -122,6 +127,43 @@ namespace CircuitOneStroke.Generation
             return slots.ToArray();
         }
 
+        /// <summary>
+        /// Nested pentagon silhouette with per-ring phase shift so the shape feels like a pentagonal spiral.
+        /// Inspired by hand-drawn nested pentagon path layouts.
+        /// </summary>
+        private static Vector2[] PentagonSpiralLayout(int n)
+        {
+            var slots = new List<Vector2>(n);
+            if (n <= 0) return slots.ToArray();
+
+            int maxRings = Mathf.Max(1, Mathf.CeilToInt(n / 5f));
+            float outerR = RingRadius * 1.06f;
+            float ringGap = RingRadius * 0.28f;
+            float phaseStep = 0.34f;
+            int remaining = n;
+
+            for (int ring = 0; ring < maxRings && remaining > 0; ring++)
+            {
+                float radius = Mathf.Max(RingRadius * 0.20f, outerR - ringGap * ring);
+                int countOnRing = Mathf.Min(5, remaining);
+                float phase = ring * phaseStep;
+
+                for (int i = 0; i < countOnRing; i++)
+                {
+                    float a = (2f * Mathf.PI * i / Mathf.Max(1, countOnRing)) - Mathf.PI / 2f + phase;
+                    slots.Add(new Vector2(radius * Mathf.Cos(a), radius * Mathf.Sin(a)));
+                }
+                remaining -= countOnRing;
+            }
+
+            if (slots.Count > n)
+                slots.RemoveRange(n, slots.Count - n);
+            while (slots.Count < n)
+                slots.Add(Vector2.zero);
+
+            return slots.ToArray();
+        }
+
         private static void AddPolygon(List<Vector2> slots, int count, float radius, float phase)
         {
             if (count <= 0) return;
@@ -213,6 +255,30 @@ namespace CircuitOneStroke.Generation
             {
                 float angle = 2f * Mathf.PI * i / Mathf.Max(1, rightCount) - Mathf.PI / 2f;
                 s[idx++] = new Vector2(gap * 0.5f + clusterR * Mathf.Cos(angle), clusterR * Mathf.Sin(angle));
+            }
+            return s;
+        }
+
+        /// <summary>
+        /// Exact 4x4 board coordinates for the knight graph template.
+        /// Node id is row-major: id = row * 4 + col.
+        /// </summary>
+        private static Vector2[] KnightTour4x4ExactLayout()
+        {
+            const int rows = 4;
+            const int cols = 4;
+            float step = GridSpacing * 1.05f;
+            float x0 = -((cols - 1) * 0.5f) * step;
+            float y0 = ((rows - 1) * 0.5f) * step;
+
+            var s = new Vector2[rows * cols];
+            int id = 0;
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = 0; c < cols; c++)
+                {
+                    s[id++] = new Vector2(x0 + c * step, y0 - r * step);
+                }
             }
             return s;
         }

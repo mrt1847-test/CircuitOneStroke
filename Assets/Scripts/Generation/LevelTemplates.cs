@@ -154,6 +154,21 @@ namespace CircuitOneStroke.Generation
                 diodeCandidates = new List<(int, int)> { (3, 4), (5, 6), (2, 7), (1, 8) },
                 gateCandidates = new List<(int, int)> { (3, 4), (4, 5), (5, 6) },
                 switchCandidates = new List<int> { 4, 5 }
+            },
+            // T11_KnightGraph4x4_Exact (N=16)
+            new LevelTemplate
+            {
+                name = "T11_KnightGraph4x4_Exact",
+                nodeCount = 16,
+                edges = new List<(int, int)>
+                {
+                    (0, 6), (0, 9), (1, 7), (1, 8), (1, 10), (2, 4), (2, 9), (2, 11),
+                    (3, 5), (3, 10), (4, 10), (4, 13), (5, 11), (5, 12), (5, 14), (6, 8),
+                    (6, 13), (6, 15), (7, 9), (7, 14), (8, 14), (9, 15), (10, 12), (11, 13)
+                },
+                diodeCandidates = new List<(int, int)>(),
+                gateCandidates = new List<(int, int)>(),
+                switchCandidates = new List<int> { 5, 6, 9, 10 }
             }
         };
     }
