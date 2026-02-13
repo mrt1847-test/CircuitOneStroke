@@ -65,6 +65,7 @@ namespace CircuitOneStroke.UI
         }
         private GameObject _cachedGameWorld;
         private bool IsTransitioning => TransitionManager.Instance != null && TransitionManager.Instance.IsTransitioning;
+        private bool _lastBuildSucceeded;
 
         private void Awake()
         {
@@ -248,13 +249,35 @@ namespace CircuitOneStroke.UI
                 yield return TransitionManager.Instance.RunTransition(job);
             else
                 yield return job;
+
+            if (!_lastBuildSucceeded)
+            {
+                ShowToast("Level data missing. Rebuild GeneratedLevelManifest.");
+                yield break;
+            }
             EnterGame(levelId);
         }
 
         private IEnumerator BuildLevelJob(int levelId)
         {
             if (DebugAppScene) Debug.Log($"[AppScene] BuildLevelJob(levelId={levelId}) levelLoader={levelLoader != null}, gameFlowController={gameFlowController != null}");
-            if (levelLoader == null) { if (DebugAppScene) Debug.LogWarning("[AppScene] BuildLevelJob: levelLoader is null, level will NOT load."); yield break; }
+            _lastBuildSucceeded = false;
+
+            if (levelLoader == null)
+            {
+                if (DebugAppScene) Debug.LogWarning("[AppScene] BuildLevelJob: levelLoader is null, level will NOT load.");
+                yield break;
+            }
+
+            bool hasManifestData = levelManifest != null && levelManifest.GetLevel(levelId - 1) != null;
+            bool hasResourceData = Resources.Load<LevelData>($"Levels/Level_{levelId}") != null;
+            if (!hasManifestData && !hasResourceData)
+            {
+                int manifestCount = levelManifest != null ? levelManifest.Count : -1;
+                Debug.LogWarning($"[AppScene] BuildLevelJob: no LevelData for levelId={levelId}. manifestCount={manifestCount}, resourcePath=Levels/Level_{levelId}");
+                yield break;
+            }
+
             LevelRecords.LastPlayedLevelId = levelId;
             overlayManager?.HideAllExceptToast();
 
@@ -271,6 +294,14 @@ namespace CircuitOneStroke.UI
                 if (levelLoader.StateMachine != null)
                     levelLoader.StateMachine.ResetToIdle();
             }
+
+            _lastBuildSucceeded = levelLoader.LevelData != null && levelLoader.Runtime != null;
+            if (!_lastBuildSucceeded && DebugAppScene)
+            {
+                var loadedId = levelLoader.LevelData != null ? levelLoader.LevelData.levelId : -1;
+                Debug.LogWarning($"[AppScene] BuildLevelJob: load finished but runtime is invalid. loadedLevelId={loadedId}, targetLevelId={levelId}, runtime={(levelLoader.Runtime != null)}");
+            }
+
             CurrentLevelId = levelId;
         }
 

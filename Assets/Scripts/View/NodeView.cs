@@ -1,15 +1,10 @@
-using System.Collections;
-using UnityEngine;
-using CircuitOneStroke.Data;
+﻿using System.Collections;
 using CircuitOneStroke.Core;
+using CircuitOneStroke.Data;
+using UnityEngine;
 
 namespace CircuitOneStroke.View
 {
-    /// <summary>
-    /// ???몃뱶??2D ??�떆. SpriteRenderer + Collider2D ?꾩슂.
-    /// ?꾧뎄=BulbShape ?꾩씠??+ On/Off 湲濡쒖?? ??�쐞�?SwitchLever ?꾩씠?? ?뺥깭�??�щ텇.
-    /// ??�봽??�씠?�? null??�??procedural fallback ?곸슜 (媛??�꽦 蹂댁??.
-    /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     [RequireComponent(typeof(Collider2D))]
     public class NodeView : MonoBehaviour
@@ -17,38 +12,43 @@ namespace CircuitOneStroke.View
         public int NodeId { get; private set; }
 
         [Header("Bulb")]
-        [SerializeField] private Color bulbOffColor = new Color(0.86f, 0.92f, 0.97f, 1f);
-        [SerializeField] private Color bulbOnColor = new Color(0.99f, 0.80f, 0.34f, 1f);
+        [SerializeField] private Color bulbOffColor = new Color(0.72f, 0.79f, 0.88f, 1f);
+        [SerializeField] private Color bulbOnColor = new Color(1.00f, 0.84f, 0.36f, 1f);
+        [SerializeField] private Color bulbVisitedCoreColor = new Color(1.00f, 0.97f, 0.84f, 1f);
+        [SerializeField] private Color bulbVisitedHaloColor = new Color(0.44f, 0.88f, 1.00f, 0.62f);
+
         [Header("Switch")]
         [SerializeField] private Color switchColor = new Color(0.70f, 0.80f, 0.88f, 1f);
         [SerializeField] private Color switchHighlightColor = new Color(0.84f, 0.94f, 1f, 1f);
+
         [Header("Blocked")]
         [SerializeField] private Color blockedColor = new Color(0.22f, 0.22f, 0.24f, 1f);
         [SerializeField] private Color blockedHintColor = new Color(0.38f, 0.38f, 0.42f, 1f);
-        [Header("Touch (mobile)")]
-        [Tooltip("Collider radius = sprite half-size * this. >1 for easier touch on small nodes.")]
+
+        [Header("Touch")]
         [SerializeField] private float colliderRadiusScale = 1.35f;
-        [Header("Resume (Paused state)")]
+
+        [Header("Resume")]
         [SerializeField] private float resumePulseScaleAmount = 0.15f;
         [SerializeField] private float resumePulseSpeed = 4f;
 
         private SpriteRenderer _sr;
         private SpriteRenderer _iconSr;
+        private SpriteRenderer _visitedHaloSr;
         private NodeType _nodeType;
         private bool _visited;
         private bool _resumeHighlight;
         private bool _hintModeActive;
         private bool _hintCandidate;
         private float _baseScaleFromSettings = 1f;
+        private float _haloPulsePhase;
         private Coroutine _resumePulseCoroutine;
 
         private void Awake()
         {
             if (!Application.isPlaying)
                 return;
-            _sr = GetComponent<SpriteRenderer>();
-            if (_sr == null)
-                _sr = GetComponentInChildren<SpriteRenderer>();
+            _sr = GetComponent<SpriteRenderer>() ?? GetComponentInChildren<SpriteRenderer>();
             EnsureBaseSprite();
         }
 
@@ -69,6 +69,21 @@ namespace CircuitOneStroke.View
                 GameSettings.Instance.OnChanged -= OnSettingsChanged;
         }
 
+        private void Update()
+        {
+            if (_visitedHaloSr == null || !_visitedHaloSr.gameObject.activeSelf)
+                return;
+
+            _haloPulsePhase += Time.deltaTime * 5.8f;
+            float t = Mathf.Sin(_haloPulsePhase) * 0.5f + 0.5f;
+            float s = 1.52f + t * 0.12f;
+            _visitedHaloSr.transform.localScale = new Vector3(s, s, 1f);
+
+            var c = bulbVisitedHaloColor;
+            c.a = Mathf.Lerp(0.36f, bulbVisitedHaloColor.a, t);
+            _visitedHaloSr.color = c;
+        }
+
         private void OnSettingsChanged(GameSettingsData _) => ApplyNodeSizeScale();
 
         private void ApplyNodeSizeScale()
@@ -81,28 +96,41 @@ namespace CircuitOneStroke.View
                     _ => 1f
                 }
                 : 1f;
+
             _baseScaleFromSettings = scale;
             if (!_resumeHighlight)
                 transform.localScale = new Vector3(scale, scale, 1f);
         }
 
-        /// <summary>??�봽??�씠?�? null??�??procedural fallback. 媛??�꽦 蹂댁??</summary>
         private void EnsureBaseSprite()
         {
             if (_sr == null) return;
             if (_sr.sprite == null)
             {
                 _sr.sprite = ProceduralSprites.Circle;
-                _sr.color = new Color(1f, 1f, 1f, 1f);
+                _sr.color = Color.white;
             }
             _sr.sortingOrder = ViewRenderingConstants.OrderNodes;
         }
 
-        /// <summary>?꾧뎄=BulbShape, ??�쐞�?SwitchLever. ?뺥깭�??�щ텇.</summary>
         private void EnsureSpriteAndIcon()
         {
             if (_sr == null) return;
             EnsureBaseSprite();
+
+            if (_visitedHaloSr == null)
+            {
+                var haloGo = new GameObject("VisitedHalo");
+                haloGo.transform.SetParent(transform, false);
+                haloGo.transform.localPosition = Vector3.zero;
+
+                _visitedHaloSr = haloGo.AddComponent<SpriteRenderer>();
+                _visitedHaloSr.sprite = ProceduralSprites.Circle;
+                _visitedHaloSr.sortingOrder = ViewRenderingConstants.OrderNodes - 1;
+                _visitedHaloSr.color = bulbVisitedHaloColor;
+                _visitedHaloSr.transform.localScale = new Vector3(1.55f, 1.55f, 1f);
+                _visitedHaloSr.gameObject.SetActive(false);
+            }
 
             if (_iconSr == null)
             {
@@ -110,6 +138,7 @@ namespace CircuitOneStroke.View
                 iconGo.transform.SetParent(transform, false);
                 iconGo.transform.localPosition = Vector3.zero;
                 iconGo.transform.localScale = Vector3.one * 0.44f;
+
                 _iconSr = iconGo.AddComponent<SpriteRenderer>();
                 _iconSr.sortingOrder = ViewRenderingConstants.OrderNodeIcon;
                 _iconSr.color = Color.white;
@@ -132,15 +161,16 @@ namespace CircuitOneStroke.View
             }
         }
 
-        /// <summary>LevelLoader媛 ??�룿 ???몄텧.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
             if (_sr == null)
                 _sr = GetComponent<SpriteRenderer>() ?? GetComponentInChildren<SpriteRenderer>();
+
             NodeId = nodeId;
             transform.position = new Vector3(pos.x, pos.y, 0f);
             _nodeType = nodeType;
             _visited = false;
+
             ApplyNodeSizeScale();
             EnsureSpriteAndIcon();
             ApplyVisual();
@@ -151,27 +181,25 @@ namespace CircuitOneStroke.View
         {
             if (colliderRadiusScale <= 0 || !TryGetComponent<CircleCollider2D>(out var col))
                 return;
+
             float size = 0.5f;
             if (_sr != null && _sr.sprite != null)
                 size = Mathf.Max(_sr.sprite.bounds.size.x, _sr.sprite.bounds.size.y) * 0.5f;
+
             col.radius = Mathf.Max(0.2f, size * colliderRadiusScale);
         }
 
-        /// <summary>?꾧뎄 諛⑸Ц ???.</summary>
         public void SetVisited(bool visited)
         {
             _visited = visited;
             ApplyVisual();
         }
 
-        /// <summary>??�쐞�?媛뺤???�?.</summary>
         public void SetHighlight(bool highlight)
         {
             if (_sr == null) return;
             if (_nodeType == NodeType.Switch)
-            {
                 _sr.color = highlight ? switchHighlightColor : switchColor;
-            }
         }
 
         public void SetMoveHint(bool isCandidate, bool hintModeActive)
@@ -181,16 +209,17 @@ namespace CircuitOneStroke.View
             ApplyVisual();
         }
 
-        /// <summary>Paused ????�?吏???�щ━ ?몃뱶) ??�떆. ?�쒕????????꾩뒪, ?꾨㈃ ?�?�� ?????蹂듭??</summary>
         public void SetResumeHighlight(bool on)
         {
             if (_resumeHighlight == on) return;
             _resumeHighlight = on;
+
             if (_resumePulseCoroutine != null)
             {
                 StopCoroutine(_resumePulseCoroutine);
                 _resumePulseCoroutine = null;
             }
+
             if (on)
                 _resumePulseCoroutine = StartCoroutine(ResumePulseCoroutine());
             else
@@ -206,32 +235,43 @@ namespace CircuitOneStroke.View
                 transform.localScale = new Vector3(s, s, 1f);
                 yield return null;
             }
+
             _resumePulseCoroutine = null;
         }
 
-        /// <summary>?꾧뎄=諛⑸Ц ???�쒖�??? ??�쐞�??�좎???? 踰좎????꾩씠????�린??</summary>
         private void ApplyVisual()
         {
             if (_sr == null) return;
+
             if (_nodeType == NodeType.Bulb)
             {
-                Color off = bulbOffColor;
-                Color on = bulbOnColor;
-                Color baseColor = _visited ? on : off;
+                Color baseColor = _visited ? bulbOnColor : bulbOffColor;
                 if (_hintModeActive)
                 {
                     if (_hintCandidate)
-                        baseColor = Color.Lerp(baseColor, Color.white, 0.30f);
+                        baseColor = Color.Lerp(baseColor, Color.white, _visited ? 0.24f : 0.34f);
                     else
-                        baseColor = new Color(baseColor.r * 0.45f, baseColor.g * 0.45f, baseColor.b * 0.45f, 0.28f);
+                        baseColor = _visited
+                            ? new Color(baseColor.r * 0.90f, baseColor.g * 0.90f, baseColor.b * 0.90f, 0.92f)
+                            : new Color(baseColor.r * 0.66f, baseColor.g * 0.66f, baseColor.b * 0.66f, 0.72f);
                 }
+
                 _sr.color = baseColor;
+
                 if (_iconSr != null)
                 {
-                    Color icon = _visited ? new Color(0.93f, 0.30f, 0.22f, 1f) : new Color(0.20f, 0.36f, 0.50f, 0.95f);
+                    Color icon = _visited ? bulbVisitedCoreColor : new Color(0.16f, 0.30f, 0.44f, 0.95f);
                     if (_hintModeActive && !_hintCandidate)
-                        icon = new Color(icon.r * 0.45f, icon.g * 0.45f, icon.b * 0.45f, 0.28f);
+                        icon = _visited
+                            ? new Color(icon.r * 0.92f, icon.g * 0.92f, icon.b * 0.92f, 0.96f)
+                            : new Color(icon.r * 0.62f, icon.g * 0.62f, icon.b * 0.62f, 0.72f);
                     _iconSr.color = icon;
+                }
+
+                if (_visitedHaloSr != null)
+                {
+                    _visitedHaloSr.gameObject.SetActive(_visited);
+                    _visitedHaloSr.color = bulbVisitedHaloColor;
                 }
             }
             else if (_nodeType == NodeType.Switch)
@@ -242,14 +282,19 @@ namespace CircuitOneStroke.View
                     if (_hintCandidate) sc = Color.Lerp(sc, Color.white, 0.25f);
                     else sc = new Color(sc.r * 0.45f, sc.g * 0.45f, sc.b * 0.45f, 0.28f);
                 }
+
                 _sr.color = sc;
+
                 if (_iconSr != null)
                 {
                     Color icon = Color.white;
                     if (_hintModeActive && !_hintCandidate)
-                        icon = new Color(0.45f, 0.45f, 0.45f, 0.28f);
+                        icon = new Color(0.55f, 0.55f, 0.55f, 0.62f);
                     _iconSr.color = icon;
                 }
+
+                if (_visitedHaloSr != null)
+                    _visitedHaloSr.gameObject.SetActive(false);
             }
             else
             {
@@ -259,11 +304,15 @@ namespace CircuitOneStroke.View
                     if (_hintCandidate) bc = blockedHintColor;
                     else bc = new Color(bc.r * 0.5f, bc.g * 0.5f, bc.b * 0.5f, 0.35f);
                 }
+
                 _sr.color = bc;
+
                 if (_iconSr != null)
-                    _iconSr.color = new Color(0f, 0f, 0f, _hintModeActive && !_hintCandidate ? 0.15f : 0.45f);
+                    _iconSr.color = new Color(0f, 0f, 0f, _hintModeActive && !_hintCandidate ? 0.35f : 0.45f);
+
+                if (_visitedHaloSr != null)
+                    _visitedHaloSr.gameObject.SetActive(false);
             }
         }
     }
 }
-

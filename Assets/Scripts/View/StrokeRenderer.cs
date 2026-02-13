@@ -1,47 +1,46 @@
+﻿using CircuitOneStroke.Core;
 using UnityEngine;
-using CircuitOneStroke.Core;
 
 namespace CircuitOneStroke.View
 {
-    /// <summary>
-    /// LevelRuntime.StrokeNodes 순서대로 현재 한 붓 경로를 LineRenderer로 그림.
-    /// 2~3겹 라인(Outer/Core/Track) 구조로 흰 배경 대비 보장. 전류 텍스처 스크롤 + 간헐적 스파크 버스트만(점/비드 없음).
-    /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class StrokeRenderer : MonoBehaviour
     {
         [Header("Line")]
-        [SerializeField] private float lineWidthBase = 0.08f;
-        [SerializeField] private bool singleLineStyle = true;
+        [SerializeField] private float lineWidthBase = 0.10f;
+        [SerializeField] private bool singleLineStyle = false;
 
-        [Header("Electric Flow (texture scroll)")]
-        [SerializeField] private float flowSpeed = 2f;
-        [SerializeField] private float textureScale = 4f;
+        [Header("Flow")]
+        [SerializeField] private float flowSpeed = 3.0f;
+        [SerializeField] private float textureScale = 5.5f;
 
-        [Header("Spark bursts (at nodes, no continuous beads)")]
+        [Header("Sparks")]
         [SerializeField, Range(2f, 8f)] private float sparkBurstsPerSecond = 3f;
         [SerializeField, Range(0.1f, 0.25f)] private float sparkLifetimeMin = 0.12f;
         [SerializeField, Range(0.1f, 0.25f)] private float sparkLifetimeMax = 0.22f;
 
-        [Header("Flicker (optional)")]
-        [SerializeField] private bool flickerEnabled = true;
+        [Header("Pulse")]
+        [SerializeField] private bool pulseEnabled = true;
+        [SerializeField] private float pulseSpeed = 7.2f;
 
         private LineRenderer _lrCore;
         private LineRenderer _lrOuter;
         private LineRenderer _lrTrack;
         private LevelRuntime _runtime;
+
         private Material _coreMaterial;
         private Material _outerMaterial;
         private Material _trackMaterial;
+
         private ParticleSystem _sparks;
         private Transform _sparkEmitter;
         private float _sparkBurstAccum;
         private Vector3[] _pathCache = new Vector3[64];
         private int _coreSortOrder;
+        private float _pulsePhase;
 
-        private const float CoreAlphaBase = 0.95f;
-        private const float OuterAlphaBase = 0.55f;
-        private float _flickerPhase;
+        private const float CoreAlphaBase = 0.98f;
+        private const float OuterAlphaBase = 0.58f;
 
         private void Awake()
         {
@@ -50,6 +49,7 @@ namespace CircuitOneStroke.View
 
             if (!singleLineStyle)
                 CreateOuterAndTrack();
+
             ApplyElectricStyle();
             SetupElectricTexture();
             SetupSparkParticles();
@@ -73,17 +73,16 @@ namespace CircuitOneStroke.View
             _trackMaterial = new Material(shader);
         }
 
-        /// <summary>색/두께/정렬/캡 설정을 한 곳에서 관리.</summary>
         private void ApplyElectricStyle()
         {
             float coreW = GetCoreWidth();
 
             _lrCore.useWorldSpace = true;
-            _lrCore.startColor = new Color(0.32f, 0.80f, 0.90f, 0.96f);
-            _lrCore.endColor = new Color(0.32f, 0.80f, 0.90f, 0.96f);
+            _lrCore.startColor = new Color(0.95f, 0.99f, 1.00f, CoreAlphaBase);
+            _lrCore.endColor = new Color(0.95f, 0.99f, 1.00f, CoreAlphaBase);
             _lrCore.startWidth = _lrCore.endWidth = coreW;
-            _lrCore.numCapVertices = 5;
-            _lrCore.numCornerVertices = 4;
+            _lrCore.numCapVertices = 6;
+            _lrCore.numCornerVertices = 5;
             var coreR = _lrCore.GetComponent<Renderer>();
             if (coreR != null) coreR.sortingOrder = _coreSortOrder;
 
@@ -94,9 +93,9 @@ namespace CircuitOneStroke.View
                 return;
             }
 
-            float outerW = coreW * 2f;
+            float outerW = coreW * 2.2f;
             _lrOuter.useWorldSpace = true;
-            _outerMaterial.color = new Color(0.10f, 0.55f, 1f, OuterAlphaBase);
+            _outerMaterial.color = new Color(0.18f, 0.72f, 1f, OuterAlphaBase);
             _lrOuter.material = _outerMaterial;
             _lrOuter.startColor = _lrOuter.endColor = Color.white;
             _lrOuter.startWidth = _lrOuter.endWidth = outerW;
@@ -105,8 +104,8 @@ namespace CircuitOneStroke.View
             var outerR = _lrOuter.GetComponent<Renderer>();
             if (outerR != null) outerR.sortingOrder = _coreSortOrder - 1;
 
-            float trackW = coreW * 1.2f;
-            _trackMaterial.color = new Color(0.12f, 0.14f, 0.20f, 0.25f);
+            float trackW = coreW * 1.26f;
+            _trackMaterial.color = new Color(0.15f, 0.18f, 0.25f, 0.24f);
             _lrTrack.material = _trackMaterial;
             _lrTrack.useWorldSpace = true;
             _lrTrack.startColor = _lrTrack.endColor = Color.white;
@@ -122,8 +121,8 @@ namespace CircuitOneStroke.View
             return GameSettings.Instance?.Data != null
                 ? GameSettings.Instance.LineThicknessValue switch
                 {
-                    LineThickness.Thin => lineWidthBase * 0.7f,
-                    LineThickness.Thick => lineWidthBase * 1.4f,
+                    LineThickness.Thin => lineWidthBase * 0.74f,
+                    LineThickness.Thick => lineWidthBase * 1.42f,
                     _ => lineWidthBase
                 }
                 : lineWidthBase;
@@ -141,7 +140,6 @@ namespace CircuitOneStroke.View
             _lrCore.alignment = LineAlignment.View;
         }
 
-        /// <summary>스파크는 버스트만 사용. rateOverTime=0으로 연속 점/비드 없음.</summary>
         private void SetupSparkParticles()
         {
             var go = new GameObject("StrokeSparks");
@@ -155,7 +153,7 @@ namespace CircuitOneStroke.View
             main.startLifetime = sparkLifetimeMax;
             main.startSpeed = 0.12f;
             main.startSize = 0.09f;
-            main.startColor = new Color(0.70f, 0.92f, 1f, 0.75f);
+            main.startColor = new Color(0.78f, 0.96f, 1f, 0.78f);
             main.maxParticles = 16;
             main.playOnAwake = false;
 
@@ -199,11 +197,13 @@ namespace CircuitOneStroke.View
                 if (Application.isPlaying) Destroy(_coreMaterial);
                 else DestroyImmediate(_coreMaterial);
             }
+
             if (_outerMaterial != null)
             {
                 if (Application.isPlaying) Destroy(_outerMaterial);
                 else DestroyImmediate(_outerMaterial);
             }
+
             if (_trackMaterial != null)
             {
                 if (Application.isPlaying) Destroy(_trackMaterial);
@@ -266,20 +266,28 @@ namespace CircuitOneStroke.View
 
             if (_coreMaterial != null)
             {
-                float ts = totalLen > 0.01f ? totalLen * textureScale * 0.5f : textureScale;
+                float ts = totalLen > 0.01f ? totalLen * textureScale * 0.52f : textureScale;
                 _coreMaterial.mainTextureScale = new Vector2(ts, 1f);
                 float offset = Mathf.Repeat(Time.time * flowSpeed, 1f);
                 _coreMaterial.mainTextureOffset = new Vector2(offset, 0f);
             }
 
-            if (flickerEnabled)
+            if (pulseEnabled)
             {
-                _flickerPhase += Time.deltaTime * 9f;
-                float coreAlpha = 0.88f + Mathf.PerlinNoise(_flickerPhase, 0f) * 0.08f;
-                float outerAlpha = 0.45f + Mathf.PerlinNoise(_flickerPhase + 10f, 0f) * 0.2f;
-                _lrCore.startColor = _lrCore.endColor = new Color(0.32f, 0.80f, 0.90f, coreAlpha);
+                _pulsePhase += Time.deltaTime * pulseSpeed;
+                float pulse = Mathf.Sin(_pulsePhase) * 0.5f + 0.5f;
+
+                Color coreCol = Color.Lerp(
+                    new Color(0.72f, 0.90f, 1.00f, 0.90f),
+                    new Color(1.00f, 0.98f, 0.84f, 1.00f),
+                    pulse);
+                _lrCore.startColor = _lrCore.endColor = coreCol;
+
                 if (!singleLineStyle && _outerMaterial != null)
-                    _outerMaterial.color = new Color(0.10f, 0.55f, 1f, outerAlpha);
+                {
+                    float outerAlpha = Mathf.Lerp(0.42f, 0.72f, pulse);
+                    _outerMaterial.color = new Color(0.18f, 0.72f, 1f, outerAlpha);
+                }
             }
 
             float burstInterval = 1f / Mathf.Clamp(sparkBurstsPerSecond, 1f, 20f);
@@ -289,10 +297,10 @@ namespace CircuitOneStroke.View
                 _sparkBurstAccum -= burstInterval;
                 Vector3 sparkPos = GetSparkSpawnPosition(n);
                 _sparkEmitter.position = sparkPos;
-                var ep = new ParticleSystem.EmitParams();
-                ep.startLifetime = Random.Range(sparkLifetimeMin, sparkLifetimeMax);
+                var ep = new ParticleSystem.EmitParams { startLifetime = Random.Range(sparkLifetimeMin, sparkLifetimeMax) };
                 _sparks.Emit(ep, 1);
             }
+
             if (n >= 1 && !_sparks.isPlaying)
                 _sparks.Play();
         }
@@ -307,20 +315,25 @@ namespace CircuitOneStroke.View
             }
         }
 
-        /// <summary>스파크 생성 위치: 접점(노드) 위주, 라인 중간은 최소화.</summary>
         private Vector3 GetSparkSpawnPosition(int n)
         {
             if (n <= 0) return Vector3.zero;
             if (n == 1) return _pathCache[0];
+
             bool atNode = Random.value < 0.7f;
             if (atNode)
             {
                 int i;
                 if (n == 2) i = Random.Range(0, 2);
                 else if (n == 3) i = Random.Range(0, 3);
-                else { int[] ends = new[] { 0, 1, n - 1, n - 2 }; i = ends[Random.Range(0, 4)]; }
+                else
+                {
+                    int[] ends = { 0, 1, n - 1, n - 2 };
+                    i = ends[Random.Range(0, 4)];
+                }
                 return _pathCache[i];
             }
+
             float t = Random.Range(0.1f, 0.9f);
             return GetPointAlongPath(t);
         }
@@ -330,10 +343,12 @@ namespace CircuitOneStroke.View
             int n = _runtime?.StrokeNodes?.Count ?? 0;
             if (n == 0) return Vector3.zero;
             if (n == 1) return _pathCache[0];
+
             float totalLen = 0f;
             for (int i = 1; i < n; i++)
                 totalLen += Vector3.Distance(_pathCache[i - 1], _pathCache[i]);
             if (totalLen < 0.001f) return _pathCache[0];
+
             float target = Mathf.Clamp01(t) * totalLen;
             float acc = 0f;
             for (int i = 1; i < n; i++)
@@ -346,6 +361,7 @@ namespace CircuitOneStroke.View
                 }
                 acc += seg;
             }
+
             return _pathCache[n - 1];
         }
     }

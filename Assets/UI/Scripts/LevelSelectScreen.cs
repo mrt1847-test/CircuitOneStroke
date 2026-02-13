@@ -18,6 +18,7 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Button settingsButton;
         [SerializeField] private Text heartsText;
         [SerializeField] private Text coinsText;
+        [SerializeField] private bool hideTopLeftAuxButtonsOnHome = true;
 
         [Header("Map")]
         [SerializeField] private ScrollRect mapScrollRect;
@@ -40,6 +41,13 @@ namespace CircuitOneStroke.UI
         private int _selectedLevelId = 1;
         private bool _eventsBound;
         private CircuitOneStrokeTheme _theme;
+        private static readonly string[] PlayButtonNames = { "PlayButton", "Button_Play", "ContinueButton", "Continue / PlayButton" };
+        private static readonly string[] SettingsButtonNames = { "SettingsButton", "Button_Settings" };
+        private static readonly string[] ProfileButtonNames = { "ProfileButton", "Button_Profile", "BackButton", "Button_Back", "Button_Avatar" };
+        private static readonly string[] TopLeftAuxButtonNames =
+        {
+            "ProfileButton", "Button_Profile", "BackButton", "Button_Back", "NoAdsButton", "Button_NoAds", "Button_Avatar"
+        };
 
         public void BindRouter(UIScreenRouter router)
         {
@@ -52,11 +60,14 @@ namespace CircuitOneStroke.UI
         {
             ResolveTheme();
             EnsureRuntimeMapUI();
+            ResolveCriticalReferences();
         }
 
         private void Start()
         {
+            ResolveCriticalReferences();
             BindUiEvents();
+            ApplyHomeCleanup();
             RefreshHud();
             BuildMap();
         }
@@ -70,6 +81,8 @@ namespace CircuitOneStroke.UI
         private void OnEnable()
         {
             EnsureDependencies();
+            ResolveCriticalReferences();
+            ApplyHomeCleanup();
             RefreshHud();
             BuildMap();
         }
@@ -88,6 +101,69 @@ namespace CircuitOneStroke.UI
 
             if (HeartsManager.Instance != null)
                 HeartsManager.Instance.OnHeartsChanged += OnHeartsChanged;
+        }
+
+        private void ResolveCriticalReferences()
+        {
+            if (playButton == null)
+                playButton = FindButtonByNamesOrText(PlayButtonNames, "PLAY");
+
+            if (playButtonLabel == null && playButton != null)
+                playButtonLabel = playButton.GetComponentInChildren<Text>(true);
+
+            if (selectedLevelText == null)
+                selectedLevelText = FindTextByName("SelectedLevelText");
+
+            if (settingsButton == null)
+                settingsButton = FindButtonByNamesOrText(SettingsButtonNames, "SETTINGS");
+
+            if (profileButton == null)
+                profileButton = FindButtonByNamesOrText(ProfileButtonNames, "PROFILE");
+        }
+
+        private Button FindButtonByNamesOrText(string[] names, string textFallbackUpper)
+        {
+            foreach (var n in names)
+            {
+                var t = transform.Find(n);
+                if (t != null)
+                {
+                    var b = t.GetComponent<Button>();
+                    if (b != null) return b;
+                }
+            }
+
+            var buttons = GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                var b = buttons[i];
+                if (b == null) continue;
+                var txt = b.GetComponentInChildren<Text>(true);
+                if (txt != null && string.Equals((txt.text ?? string.Empty).Trim().ToUpperInvariant(), textFallbackUpper))
+                    return b;
+            }
+            return null;
+        }
+
+        private Text FindTextByName(string objectName)
+        {
+            var t = transform.Find(objectName);
+            return t != null ? t.GetComponent<Text>() : null;
+        }
+
+        private void ApplyHomeCleanup()
+        {
+            if (!hideTopLeftAuxButtonsOnHome) return;
+
+            for (int i = 0; i < TopLeftAuxButtonNames.Length; i++)
+            {
+                var t = transform.Find(TopLeftAuxButtonNames[i]);
+                if (t == null) continue;
+                var btn = t.GetComponent<Button>();
+                if (btn == null || btn == playButton || btn == settingsButton)
+                    continue;
+                t.gameObject.SetActive(false);
+            }
         }
 
         private void EnsureDependencies()

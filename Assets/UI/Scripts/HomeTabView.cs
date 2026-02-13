@@ -12,13 +12,50 @@ namespace CircuitOneStroke.UI
     {
         [SerializeField] private Button continueButton;
         [SerializeField] private LevelSelectScreen levelSelectScreen;
+        private bool _continueBound;
 
         private void Start()
         {
+            ResolveContinueButton();
             if (continueButton != null)
+            {
                 continueButton.onClick.AddListener(OnContinue);
+                _continueBound = true;
+            }
             if (levelSelectScreen != null)
                 levelSelectScreen.BindRouter(null); // Will use AppRouter for level clicks
+        }
+
+        private void OnDestroy()
+        {
+            if (_continueBound && continueButton != null)
+                continueButton.onClick.RemoveListener(OnContinue);
+        }
+
+        private void ResolveContinueButton()
+        {
+            if (continueButton != null) return;
+
+            var direct = transform.Find("PlayButton");
+            if (direct != null)
+                continueButton = direct.GetComponent<Button>();
+            if (continueButton != null) return;
+
+            var buttons = GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                var btn = buttons[i];
+                if (btn == null) continue;
+                var txt = btn.GetComponentInChildren<Text>(true);
+                var value = txt != null ? txt.text : string.Empty;
+                if (string.IsNullOrWhiteSpace(value)) continue;
+                var normalized = value.Trim().ToUpperInvariant();
+                if (normalized == "PLAY" || normalized == "CONTINUE" || normalized == "CONTINUE / PLAY")
+                {
+                    continueButton = btn;
+                    return;
+                }
+            }
         }
 
         private void OnContinue()
