@@ -6,7 +6,7 @@ using CircuitOneStroke.Data;
 namespace CircuitOneStroke.UI
 {
     /// <summary>
-    /// MainShell Home tab: Level selection grid + Continue button. Calls AppRouter.RequestStartLevel.
+    /// MainShell Home tab: level map view + Continue button. Calls AppRouter.RequestStartLevel.
     /// </summary>
     public class HomeTabView : MonoBehaviour
     {

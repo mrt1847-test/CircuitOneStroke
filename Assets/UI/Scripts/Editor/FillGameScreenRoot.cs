@@ -31,7 +31,7 @@ namespace CircuitOneStroke.Editor
             var edgePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EdgePrefabPath);
             if (nodePrefab == null || edgePrefab == null)
             {
-                Debug.LogError("FillGameScreenRoot: NodeView or EdgeView prefab missing. Run 'Circuit One-Stroke > Create Game Scene' once to generate Assets/Prefabs/NodeView.prefab and EdgeView.prefab.");
+                Debug.LogError("FillGameScreenRoot: NodeView or EdgeView prefab missing. Run 'Circuit One-Stroke > Create AppScene (Tab Flow + Set First Build)' once to generate Assets/Prefabs/NodeView.prefab and EdgeView.prefab.");
                 return;
             }
 

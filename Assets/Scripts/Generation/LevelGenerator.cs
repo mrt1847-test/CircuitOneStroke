@@ -24,6 +24,18 @@ namespace CircuitOneStroke.Generation
         public bool RequireNormalHardVariety;
         /// <summary>Bulb nodes to convert into blocked nodes, as percentage of total node count [0..1].</summary>
         public float ForbiddenNodeRatio;
+        /// <summary>Solution-first generator: max insertion attempts per node expansion step.</summary>
+        public int MaxAttemptsPerNode;
+        /// <summary>Solution-first generator: hard cap across all attempts in one generation call.</summary>
+        public int MaxTotalAttempts;
+        /// <summary>Solution-first generator: generation budget in milliseconds.</summary>
+        public int TimeBudgetMs;
+        /// <summary>Solution-first generator: max seed retries when generation fails.</summary>
+        public int SeedRetryCount;
+        /// <summary>Solution-first generator: target decoy edge budget as average decoys per node.</summary>
+        public float MaxDecoysPerNode;
+        /// <summary>Enable verbose per-stage logs (editor only usage).</summary>
+        public bool EnableEditorDebugLog;
     }
 
     /// <summary>
@@ -991,7 +1003,11 @@ namespace CircuitOneStroke.Generation
             foreach (int templateIndex in templateOrder)
             {
                 var layout = layouts[templateIndex];
-                if (layout.slots == null || layout.slots.Length < n) continue;
+                if (layout.slots == null || layout.slots.Length < n)
+                {
+                    LayoutTemplateTelemetry.RecordTry(layout.name, false, "slots_short");
+                    continue;
+                }
 
                 int retriesPerTemplate = Mathf.Max(6, LayoutRetryCount / Mathf.Max(1, layouts.Count));
                 for (int tryCount = 0; tryCount < retriesPerTemplate; tryCount++)
@@ -1034,6 +1050,7 @@ namespace CircuitOneStroke.Generation
 
                     if (placementOk)
                     {
+                        LayoutTemplateTelemetry.RecordTry(layout.name, true);
                         var outPos = new Vector2[n];
                         for (int j = 0; j < n; j++) outPos[j] = transformed[j];
                         float localScore = AestheticEvaluator.Score(edgeList, outPos, n);
@@ -1046,6 +1063,15 @@ namespace CircuitOneStroke.Generation
                                 UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} template={layout.name} rot={rotationDeg:F1} shear=({shearX:F2},{shearY:F2}) warp={radialWarp:F2} applied=true minDist={minDist:F3} clear={minClearance:F3} angle={minAngle:F1} cross={crossings}");
                         }
                     }
+                    else
+                    {
+                        string failReason;
+                        if (minClearance < LayoutPlacementMinClearance) failReason = "edge_clearance";
+                        else if (minAngle < LayoutPlacementMinAngleDeg) failReason = "min_angle";
+                        else if (crossings > maxCrossingsForPlacement) failReason = "crossings";
+                        else failReason = "placement_reject";
+                        LayoutTemplateTelemetry.RecordTry(layout.name, false, failReason);
+                    }
 
                     if (EnableLayoutDebugLog && tryCount == retriesPerTemplate - 1)
                     {
@@ -1056,7 +1082,13 @@ namespace CircuitOneStroke.Generation
                     }
                 }
             }
-            if (accepted.Count == 0) return null;
+            if (accepted.Count == 0)
+            {
+                LayoutTemplateTelemetry.RecordFallback("LevelGenerator.PlaceNodesWithLayout", n);
+                LayoutTemplateTelemetry.DumpPeriodicIfNeeded("LevelGenerator");
+                // Caller is expected to apply circle fallback when this returns null.
+                return null;
+            }
 
             // Keep the 4x4 knight graph silhouette as-authored when available.
             var exactAccepted = accepted.FindAll(a => IsExactLayout(a.name));
@@ -1065,6 +1097,8 @@ namespace CircuitOneStroke.Generation
                 var exactChoice = exactAccepted[rng.Next(exactAccepted.Count)];
                 usedLayoutName = exactChoice.name;
                 templateApplied = true;
+                LayoutTemplateTelemetry.RecordChosen(usedLayoutName);
+                LayoutTemplateTelemetry.DumpPeriodicIfNeeded("LevelGenerator");
                 if (EnableLayoutDebugLog)
                     UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} accepted={accepted.Count} exactPicked={usedLayoutName}");
                 return exactChoice.pos;
@@ -1087,6 +1121,8 @@ namespace CircuitOneStroke.Generation
             var chosen = sameTemplate[rng.Next(sameTemplate.Count)];
             usedLayoutName = chosen.name;
             templateApplied = true;
+            LayoutTemplateTelemetry.RecordChosen(usedLayoutName);
+            LayoutTemplateTelemetry.DumpPeriodicIfNeeded("LevelGenerator");
             if (EnableLayoutDebugLog)
                 UnityEngine.Debug.Log($"[Layout] N={n} seed={seed} accepted={accepted.Count} top={topCount} pickedTemplate={pickedName}");
             return chosen.pos;
@@ -1097,12 +1133,14 @@ namespace CircuitOneStroke.Generation
             if (slotPerm == null || slotPerm.Length < n) return;
             if (IsExactLayout(layoutName))
             {
+                // Exact templates are authored shapes and should not be remapped.
                 for (int i = 0; i < n; i++) slotPerm[i] = i;
                 return;
             }
             bool radial = IsRadialLayout(layoutName);
             if (radial)
             {
+                // Radial templates keep cyclic order, with optional rotation/reverse.
                 int offset = rng.Next(n);
                 bool reverse = rng.NextDouble() < 0.5;
                 for (int i = 0; i < n; i++)
@@ -1115,7 +1153,7 @@ namespace CircuitOneStroke.Generation
                 return;
             }
 
-            // For non-radial templates keep ordering mostly intact to preserve silhouette.
+            // For non-radial templates preserve broad silhouette, allow small local variety.
             bool reverseLinear = rng.NextDouble() < 0.25;
             for (int i = 0; i < n; i++)
                 slotPerm[i] = reverseLinear ? (n - 1 - i) : i;

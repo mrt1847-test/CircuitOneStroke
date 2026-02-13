@@ -17,28 +17,37 @@ namespace CircuitOneStroke.Generation
     {
         private const float RingRadius = 3.5f;
         private const float GridSpacing = 1.35f;
+        private const int MinTemplateNodeCount = 4;
+        private const int GridSparseMinNodeCount = 8;
+        private const int TwoClusterMinNodeCount = 9;
+        private const int PentagonSpiralMinNodeCount = 10;
+        private const int LadderMinNodeCount = 12;
+        private const int KnightExactNodeCount = 16;
 
         public static List<LayoutTemplate> GetLayoutsForNodeCount(int n)
         {
             var list = new List<LayoutTemplate>();
-            if (n < 4) return list;
+            if (n < MinTemplateNodeCount) return list;
 
-            if (n == 16)
+            // Keep this exact layout only at matching node count to preserve authored geometry.
+            if (n == KnightExactNodeCount)
                 list.Add(new LayoutTemplate { name = "KnightTour4x4Exact", nodeCount = n, slots = KnightTour4x4ExactLayout() });
 
+            // Core families available for all supported sizes.
             list.Add(new LayoutTemplate { name = "Ring", nodeCount = n, slots = Ring(n) });
             list.Add(new LayoutTemplate { name = "StarSpoke", nodeCount = n, slots = StarSpokeLayout(n) });
             list.Add(new LayoutTemplate { name = "DoubleRing", nodeCount = n, slots = DoubleRingLayout(n) });
             list.Add(new LayoutTemplate { name = "ConcentricPolygon", nodeCount = n, slots = ConcentricPolygonLayout(n) });
-            if (n >= 10)
+            if (n >= PentagonSpiralMinNodeCount)
                 list.Add(new LayoutTemplate { name = "PentagonSpiral", nodeCount = n, slots = PentagonSpiralLayout(n) });
             list.Add(new LayoutTemplate { name = "Layered", nodeCount = n, slots = LayeredLayout(n) });
 
-            if (n >= 8)
+            // Higher-N helpers for branch-friendly slot dispersion.
+            if (n >= GridSparseMinNodeCount)
                 list.Add(new LayoutTemplate { name = "GridSparse", nodeCount = n, slots = GridSparse(n) });
-            if (n >= 9)
+            if (n >= TwoClusterMinNodeCount)
                 list.Add(new LayoutTemplate { name = "TwoCluster", nodeCount = n, slots = TwoClusters(n) });
-            if (n >= 12)
+            if (n >= LadderMinNodeCount)
                 list.Add(new LayoutTemplate { name = "Ladder", nodeCount = n, slots = Ladder(n) });
 
             return list;
@@ -92,6 +101,7 @@ namespace CircuitOneStroke.Generation
 
         private static Vector2[] DoubleRingLayout(int n)
         {
+            // Two radial bands: outer for readability, inner for controlled complexity.
             int outerCount = Mathf.Clamp(Mathf.RoundToInt(n * 0.62f), 4, n - 2);
             int innerCount = n - outerCount;
             float outerR = RingRadius;
@@ -158,10 +168,8 @@ namespace CircuitOneStroke.Generation
 
             if (slots.Count > n)
                 slots.RemoveRange(n, slots.Count - n);
-            while (slots.Count < n)
-                slots.Add(Vector2.zero);
-
-            return slots.ToArray();
+            FillMissingSlots(slots, n, RingRadius * 0.18f);
+            return slots.GetRange(0, n).ToArray();
         }
 
         private static void AddPolygon(List<Vector2> slots, int count, float radius, float phase)
@@ -176,6 +184,7 @@ namespace CircuitOneStroke.Generation
 
         private static Vector2[] LayeredLayout(int n)
         {
+            // Horizontal bands improve local separation and reduce long diagonal crowding.
             int layers = n < 10 ? 2 : 3;
             int top = Mathf.Max(2, Mathf.RoundToInt(n * 0.28f));
             int middle = layers == 3 ? Mathf.Max(2, Mathf.RoundToInt(n * 0.42f)) : n - top;
@@ -191,8 +200,21 @@ namespace CircuitOneStroke.Generation
             AddHorizontalLayer(slots, bottom, yBot, GridSpacing * 1.25f);
 
             while (slots.Count > n) slots.RemoveAt(slots.Count - 1);
-            while (slots.Count < n) slots.Add(Vector2.zero);
-            return slots.ToArray();
+            FillMissingSlots(slots, n, GridSpacing * 0.35f);
+            return slots.GetRange(0, n).ToArray();
+        }
+
+        // Avoid stacking missing nodes at (0,0). If a layout under-fills, append a tiny ring near center.
+        private static void FillMissingSlots(List<Vector2> slots, int targetCount, float fillRadius)
+        {
+            if (slots == null) return;
+            if (slots.Count >= targetCount) return;
+            int missing = targetCount - slots.Count;
+            for (int i = 0; i < missing; i++)
+            {
+                float a = (2f * Mathf.PI * i / Mathf.Max(1, missing)) - Mathf.PI / 2f;
+                slots.Add(new Vector2(fillRadius * Mathf.Cos(a), fillRadius * Mathf.Sin(a)));
+            }
         }
 
         private static void AddHorizontalLayer(List<Vector2> slots, int count, float y, float spacing)

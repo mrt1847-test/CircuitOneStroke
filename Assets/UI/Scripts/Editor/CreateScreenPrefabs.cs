@@ -253,43 +253,103 @@ namespace CircuitOneStroke.Editor
 
             var screen = root.AddComponent<CircuitOneStroke.UI.LevelSelectScreen>();
 
-            var backBtn = CreateButton("Back", theme);
-            backBtn.transform.SetParent(root.transform, false);
-            var backRect = backBtn.GetComponent<RectTransform>();
-            backRect.anchorMin = new Vector2(0.02f, 0.92f);
-            backRect.anchorMax = new Vector2(0.18f, 0.98f);
-            backRect.offsetMin = backRect.offsetMax = Vector2.zero;
+            var profileBtn = CreateButton("Me", theme);
+            profileBtn.transform.SetParent(root.transform, false);
+            var profileRect = profileBtn.GetComponent<RectTransform>();
+            profileRect.anchorMin = profileRect.anchorMax = new Vector2(0.08f, 0.95f);
+            profileRect.sizeDelta = new Vector2(130, 70);
 
             var settingsBtn = CreateButton("Settings", theme);
             settingsBtn.transform.SetParent(root.transform, false);
             var setRect = settingsBtn.GetComponent<RectTransform>();
-            setRect.anchorMin = new Vector2(0.82f, 0.92f);
-            setRect.anchorMax = new Vector2(0.98f, 0.98f);
-            setRect.offsetMin = setRect.offsetMax = Vector2.zero;
+            setRect.anchorMin = setRect.anchorMax = new Vector2(0.92f, 0.95f);
+            setRect.sizeDelta = new Vector2(160, 70);
 
-            var gridGo = new GameObject("Grid");
-            gridGo.transform.SetParent(root.transform, false);
-            var gridRect = gridGo.AddComponent<RectTransform>();
-            gridRect.anchorMin = new Vector2(0.05f, 0.1f);
-            gridRect.anchorMax = new Vector2(0.95f, 0.88f);
-            gridRect.offsetMin = gridRect.offsetMax = Vector2.zero;
+            var heartsGo = new GameObject("HeartsText");
+            heartsGo.transform.SetParent(root.transform, false);
+            var heartsRect = heartsGo.AddComponent<RectTransform>();
+            heartsRect.anchorMin = heartsRect.anchorMax = new Vector2(0.70f, 0.95f);
+            heartsRect.sizeDelta = new Vector2(170, 56);
+            var heartsText = heartsGo.AddComponent<Text>();
+            heartsText.text = "5 FULL";
+            heartsText.fontSize = 34;
+            heartsText.alignment = TextAnchor.MiddleCenter;
+            heartsText.color = new Color(0.16f, 0.2f, 0.32f, 1f);
 
-            var grid = gridGo.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(100, 100);
-            grid.spacing = new Vector2(12, 12);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 5;
-            grid.childAlignment = TextAnchor.UpperCenter;
+            var coinsGo = new GameObject("CoinsText");
+            coinsGo.transform.SetParent(root.transform, false);
+            var coinsRect = coinsGo.AddComponent<RectTransform>();
+            coinsRect.anchorMin = coinsRect.anchorMax = new Vector2(0.83f, 0.95f);
+            coinsRect.sizeDelta = new Vector2(100, 56);
+            var coinsText = coinsGo.AddComponent<Text>();
+            coinsText.text = "25";
+            coinsText.fontSize = 34;
+            coinsText.alignment = TextAnchor.MiddleCenter;
+            coinsText.color = new Color(0.16f, 0.2f, 0.32f, 1f);
 
-            var cellPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabsPath + "/LevelCell.prefab");
+            var mapRoot = new GameObject("MapScroll");
+            mapRoot.transform.SetParent(root.transform, false);
+            var mapRect = mapRoot.AddComponent<RectTransform>();
+            mapRect.anchorMin = new Vector2(0f, 0.15f);
+            mapRect.anchorMax = new Vector2(1f, 0.90f);
+            mapRect.offsetMin = mapRect.offsetMax = Vector2.zero;
+            var mapBg = mapRoot.AddComponent<Image>();
+            mapBg.color = new Color(1f, 0.94f, 0.78f, 0.95f);
+            var scroll = mapRoot.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+
+            var viewport = new GameObject("Viewport");
+            viewport.transform.SetParent(mapRoot.transform, false);
+            var vpRect = viewport.AddComponent<RectTransform>();
+            vpRect.anchorMin = Vector2.zero;
+            vpRect.anchorMax = Vector2.one;
+            vpRect.offsetMin = vpRect.offsetMax = Vector2.zero;
+            var vpImage = viewport.AddComponent<Image>();
+            vpImage.color = Color.clear;
+            var mask = viewport.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var content = new GameObject("Content");
+            content.transform.SetParent(viewport.transform, false);
+            var contentRect = content.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0.5f, 1f);
+            contentRect.anchorMax = new Vector2(0.5f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(700, 2200);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            scroll.viewport = vpRect;
+            scroll.content = contentRect;
+
+            var selectedLevelGo = new GameObject("SelectedLevelText");
+            selectedLevelGo.transform.SetParent(root.transform, false);
+            var selectedRect = selectedLevelGo.AddComponent<RectTransform>();
+            selectedRect.anchorMin = selectedRect.anchorMax = new Vector2(0.5f, 0.10f);
+            selectedRect.sizeDelta = new Vector2(180, 80);
+            var selectedText = selectedLevelGo.AddComponent<Text>();
+            selectedText.text = "1";
+            selectedText.fontSize = 64;
+            selectedText.alignment = TextAnchor.MiddleCenter;
+            selectedText.color = new Color(0.28f, 0.2f, 0.08f, 1f);
+
+            var playGo = CreateButton("PLAY", theme);
+            playGo.transform.SetParent(root.transform, false);
+            var playRect = playGo.GetComponent<RectTransform>();
+            playRect.anchorMin = playRect.anchorMax = new Vector2(0.5f, 0.04f);
+            playRect.sizeDelta = new Vector2(280, 100);
+            var playLabel = playGo.GetComponentInChildren<Text>();
 
             var so = new SerializedObject(screen);
-            so.FindProperty("gridContainer").objectReferenceValue = gridGo.transform;
-            so.FindProperty("levelCellPrefab").objectReferenceValue = cellPrefab;
-            so.FindProperty("backButton").objectReferenceValue = backBtn.GetComponent<Button>();
+            so.FindProperty("profileButton").objectReferenceValue = profileBtn.GetComponent<Button>();
             so.FindProperty("settingsButton").objectReferenceValue = settingsBtn.GetComponent<Button>();
-            so.FindProperty("gridLayout").objectReferenceValue = grid;
-            so.FindProperty("columns").intValue = 5;
+            so.FindProperty("heartsText").objectReferenceValue = heartsText;
+            so.FindProperty("coinsText").objectReferenceValue = coinsText;
+            so.FindProperty("mapScrollRect").objectReferenceValue = scroll;
+            so.FindProperty("mapContent").objectReferenceValue = contentRect;
+            so.FindProperty("selectedLevelText").objectReferenceValue = selectedText;
+            so.FindProperty("playButton").objectReferenceValue = playGo.GetComponent<Button>();
+            so.FindProperty("playButtonLabel").objectReferenceValue = playLabel;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             SavePrefab(root, ScreensPath + "/LevelSelectScreen.prefab");

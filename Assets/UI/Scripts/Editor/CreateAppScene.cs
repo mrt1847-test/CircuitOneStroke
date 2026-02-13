@@ -16,7 +16,7 @@ namespace CircuitOneStroke.Editor
     /// Creates AppScene with tab-based flow: HomeScreenRoot, ShopScreenRoot, SettingsScreenRoot, GameScreenRoot, BottomNavBar.
     /// Sets AppScene as first scene in Build Settings.
     /// CHECKLIST after run: Canvas > SafeAreaPanel > MainShellRoot > (HomeScreenRoot, ShopScreenRoot, SettingsScreenRoot, BottomNavBar); GameScreenRoot; ScreenRouter on Canvas.
-    /// To get gameplay: copy LevelLoader + GameHUD (and Nodes/Edges roots) from GameScene into GameScreenRoot, or add LevelLoader prefab under GameScreenRoot.
+    /// Gameplay hierarchy is auto-created under GameScreenRoot during AppScene generation.
     /// </summary>
     public static class CreateAppScene
     {
@@ -25,10 +25,21 @@ namespace CircuitOneStroke.Editor
         [MenuItem("Circuit One-Stroke/Create AppScene (Tab Flow + Set First Build)")]
         public static void Create()
         {
+            CreateInternal(applyKenneyTheme: false);
+        }
+
+        [MenuItem("Circuit One-Stroke/Create AppScene (Tab Flow + Apply Kenney Theme + Set First Build)")]
+        public static void CreateWithKenneyTheme()
+        {
+            CreateInternal(applyKenneyTheme: true);
+        }
+
+        private static void CreateInternal(bool applyKenneyTheme)
+        {
             if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
                 AssetDatabase.CreateFolder("Assets", "Scenes");
 
-            CreateGameScene.EnsureNodeAndEdgePrefabs();
+            EnsureGameplayPrefabs();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             var cam = Object.FindFirstObjectByType<Camera>();
@@ -119,11 +130,15 @@ namespace CircuitOneStroke.Editor
             appSo.ApplyModifiedPropertiesWithoutUndo();
 
             gameRoot.SetActive(false);
-            AssignKenneyToTheme.Assign();
+            if (applyKenneyTheme)
+                AssignKenneyToTheme.Assign();
             if (theme != null) themeApplier.Apply(theme);
             EditorSceneManager.SaveScene(scene, ScenePath);
             SetAppSceneFirstInBuildSettings();
-            Debug.Log("AppScene created at " + ScenePath + " with Kenney theme applied. Set as first build scene. Run 'Apply Kenney UI (Theme + Current Scene)' on any scene to refresh Kenney look.");
+            if (applyKenneyTheme)
+                Debug.Log("AppScene created at " + ScenePath + " with Kenney theme applied. Set as first build scene.");
+            else
+                Debug.Log("AppScene created at " + ScenePath + " without modifying theme assets. Set as first build scene.");
         }
 
         /// <summary>열려 있는 앱씬에서 퍼즐이 안 보이거나 레벨이 안 로드될 때: AppRouter에 LevelLoader/GameFlowController 연결, GameScreenRoot 배경 투명 처리.</summary>
@@ -540,13 +555,19 @@ namespace CircuitOneStroke.Editor
         private static void SetAppSceneFirstInBuildSettings()
         {
             var appScene = new EditorBuildSettingsScene(ScenePath, true);
-            var gameScenePath = "Assets/Scenes/GameScene.unity";
             var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             list.RemoveAll(s => s.path == ScenePath);
             list.Insert(0, appScene);
-            if (!list.Exists(s => s.path == gameScenePath) && System.IO.File.Exists(gameScenePath))
-                list.Add(new EditorBuildSettingsScene(gameScenePath, true));
             EditorBuildSettings.scenes = list.ToArray();
+        }
+
+        private static void EnsureGameplayPrefabs()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NodeView.prefab") == null ||
+                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/EdgeView.prefab") == null)
+            {
+                GameplayPrefabFactory.EnsureNodeAndEdgePrefabs();
+            }
         }
     }
 }

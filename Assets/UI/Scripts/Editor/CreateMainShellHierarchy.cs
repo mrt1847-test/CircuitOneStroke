@@ -9,7 +9,7 @@ namespace CircuitOneStroke.Editor
 {
     /// <summary>
     /// Adds MainShell + GameRoot + OverlayRoot hierarchy and AppRouter to existing UIRoot.
-    /// Run after Create Game Scene. Then assign prefabs (Home/Shop/Settings tab content, GameHUD, etc.) in Inspector.
+    /// Run after Create AppScene. Then assign prefabs (Home/Shop/Settings tab content, GameHUD, etc.) in Inspector.
     /// 디자인: CircuitOneStrokeTheme 사용. Kenney Sci-Fi(패널/버튼) → "Circuit One-Stroke/UI/Assign Kenney Sci-Fi to Theme" 실행.
     /// Skymon 아이콘(탭 아이콘) → "Circuit One-Stroke/UI/Assign Skymon Icons to Theme" 실행 후 Create MainShell 실행.
     /// </summary>
@@ -21,7 +21,7 @@ namespace CircuitOneStroke.Editor
             var canvas = Object.FindFirstObjectByType<Canvas>();
             if (canvas == null)
             {
-                Debug.LogError("No Canvas in scene. Run 'Create Game Scene' first.");
+                Debug.LogError("No Canvas in scene. Run 'Circuit One-Stroke > Create AppScene (Tab Flow + Set First Build)' first.");
                 return;
             }
 
@@ -224,8 +224,11 @@ namespace CircuitOneStroke.Editor
             loseRetry.transform.SetParent(loseContent.transform, false);
             var loseLevelSelect = CreateThemedButton("Level Select", theme, useAccentText: false);
             loseLevelSelect.transform.SetParent(loseContent.transform, false);
-            var loseWatchAd = CreateButton("Watch Ad", theme != null ? theme.warning : UIStyleConstants.Warning);
+            var loseWatchAd = CreateThemedButton("Watch Ad", theme, useAccentText: false);
             loseWatchAd.transform.SetParent(loseContent.transform, false);
+            var loseWatchAdImg = loseWatchAd.GetComponent<Image>();
+            if (loseWatchAdImg != null && (theme == null || theme.buttonSprite == null))
+                loseWatchAdImg.color = theme != null ? theme.warning : UIStyleConstants.Warning;
             loseContent.SetActive(false);
 
             var oohPanel = new GameObject("OutOfHeartsPanel");
@@ -235,11 +238,41 @@ namespace CircuitOneStroke.Editor
             oohRect.anchorMax = Vector2.one;
             oohRect.offsetMin = oohRect.offsetMax = Vector2.zero;
             var oohImg = oohPanel.AddComponent<Image>();
-            oohImg.color = new Color(0.1f, 0.1f, 0.15f, 0.9f);
+            oohImg.color = new Color(0f, 0f, 0f, 0.72f);
+            var oohCard = new GameObject("OutOfHeartsCard");
+            oohCard.transform.SetParent(oohPanel.transform, false);
+            var oohCardRect = oohCard.AddComponent<RectTransform>();
+            oohCardRect.anchorMin = oohCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            oohCardRect.pivot = new Vector2(0.5f, 0.5f);
+            oohCardRect.sizeDelta = new Vector2(760, 500);
+            var oohCardImg = oohCard.AddComponent<Image>();
+            oohCardImg.color = theme != null ? theme.panelBase : UIStyleConstants.PanelBase;
+            var oohCardRole = oohCard.AddComponent<ThemeRole>();
+            oohCardRole.role = ThemeRole.Role.Panel;
+            var oohMsg = new GameObject("Message").AddComponent<Text>();
+            oohMsg.transform.SetParent(oohCard.transform, false);
+            oohMsg.text = "Out of hearts.\nWatch an ad to refill.";
+            oohMsg.fontSize = 42;
+            oohMsg.alignment = TextAnchor.MiddleCenter;
+            if (theme != null && theme.font != null) oohMsg.font = theme.font;
+            var oohMsgRect = oohMsg.GetComponent<RectTransform>();
+            oohMsgRect.anchorMin = new Vector2(0.08f, 0.56f);
+            oohMsgRect.anchorMax = new Vector2(0.92f, 0.92f);
+            oohMsgRect.offsetMin = oohMsgRect.offsetMax = Vector2.zero;
+            var oohMsgRole = oohMsg.gameObject.AddComponent<ThemeTextRole>();
+            oohMsgRole.useAccentColor = false;
             var oohWatch = CreateThemedButton("Watch Ad to Refill", theme, useAccentText: false);
-            oohWatch.transform.SetParent(oohPanel.transform, false);
+            oohWatch.transform.SetParent(oohCard.transform, false);
+            var oohWatchRect = oohWatch.GetComponent<RectTransform>();
+            oohWatchRect.anchorMin = new Vector2(0.12f, 0.28f);
+            oohWatchRect.anchorMax = new Vector2(0.88f, 0.46f);
+            oohWatchRect.offsetMin = oohWatchRect.offsetMax = Vector2.zero;
             var oohBack = CreateThemedButton("Back", theme, useAccentText: false);
-            oohBack.transform.SetParent(oohPanel.transform, false);
+            oohBack.transform.SetParent(oohCard.transform, false);
+            var oohBackRect = oohBack.GetComponent<RectTransform>();
+            oohBackRect.anchorMin = new Vector2(0.2f, 0.08f);
+            oohBackRect.anchorMax = new Vector2(0.8f, 0.24f);
+            oohBackRect.offsetMin = oohBackRect.offsetMax = Vector2.zero;
             oohPanel.SetActive(false);
 
             var confirmExit = new GameObject("ConfirmExitDialog");
@@ -248,11 +281,44 @@ namespace CircuitOneStroke.Editor
             confirmExit.GetComponent<RectTransform>().anchorMax = Vector2.one;
             confirmExit.GetComponent<RectTransform>().offsetMin = confirmExit.GetComponent<RectTransform>().offsetMax = Vector2.zero;
             var ceImg = confirmExit.AddComponent<Image>();
-            ceImg.color = new Color(0, 0, 0, 0.6f);
-            var confirmBtn = CreateButton("Exit", theme != null ? theme.danger : UIStyleConstants.Danger);
-            confirmBtn.transform.SetParent(confirmExit.transform, false);
+            ceImg.color = new Color(0f, 0f, 0f, 0.72f);
+            var confirmCard = new GameObject("ConfirmCard");
+            confirmCard.transform.SetParent(confirmExit.transform, false);
+            var confirmCardRect = confirmCard.AddComponent<RectTransform>();
+            confirmCardRect.anchorMin = confirmCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            confirmCardRect.pivot = new Vector2(0.5f, 0.5f);
+            confirmCardRect.sizeDelta = new Vector2(700, 380);
+            var confirmCardImg = confirmCard.AddComponent<Image>();
+            confirmCardImg.color = theme != null ? theme.panelBase : UIStyleConstants.PanelBase;
+            var confirmCardRole = confirmCard.AddComponent<ThemeRole>();
+            confirmCardRole.role = ThemeRole.Role.Panel;
+            var confirmMsg = new GameObject("Message").AddComponent<Text>();
+            confirmMsg.transform.SetParent(confirmCard.transform, false);
+            confirmMsg.text = "Leave this level?";
+            confirmMsg.fontSize = 40;
+            confirmMsg.alignment = TextAnchor.MiddleCenter;
+            if (theme != null && theme.font != null) confirmMsg.font = theme.font;
+            var confirmMsgRect = confirmMsg.GetComponent<RectTransform>();
+            confirmMsgRect.anchorMin = new Vector2(0.1f, 0.55f);
+            confirmMsgRect.anchorMax = new Vector2(0.9f, 0.9f);
+            confirmMsgRect.offsetMin = confirmMsgRect.offsetMax = Vector2.zero;
+            var confirmMsgRole = confirmMsg.gameObject.AddComponent<ThemeTextRole>();
+            confirmMsgRole.useAccentColor = false;
+            var confirmBtn = CreateThemedButton("Exit", theme, useAccentText: false);
+            confirmBtn.transform.SetParent(confirmCard.transform, false);
+            var confirmBtnRect = confirmBtn.GetComponent<RectTransform>();
+            confirmBtnRect.anchorMin = new Vector2(0.1f, 0.12f);
+            confirmBtnRect.anchorMax = new Vector2(0.46f, 0.38f);
+            confirmBtnRect.offsetMin = confirmBtnRect.offsetMax = Vector2.zero;
+            var confirmBtnImg = confirmBtn.GetComponent<Image>();
+            if (confirmBtnImg != null && (theme == null || theme.buttonSprite == null))
+                confirmBtnImg.color = theme != null ? theme.danger : UIStyleConstants.Danger;
             var cancelBtn = CreateThemedButton("Cancel", theme, useAccentText: false);
-            cancelBtn.transform.SetParent(confirmExit.transform, false);
+            cancelBtn.transform.SetParent(confirmCard.transform, false);
+            var cancelBtnRect = cancelBtn.GetComponent<RectTransform>();
+            cancelBtnRect.anchorMin = new Vector2(0.54f, 0.12f);
+            cancelBtnRect.anchorMax = new Vector2(0.9f, 0.38f);
+            cancelBtnRect.offsetMin = cancelBtnRect.offsetMax = Vector2.zero;
             confirmExit.SetActive(false);
 
             var overlayApplier = overlayMgrGo.AddComponent<ThemeApplier>();
@@ -282,31 +348,33 @@ namespace CircuitOneStroke.Editor
             return root.transform;
         }
 
-        private static GameObject CreateButton(string label, Color color)
-        {
-            var go = new GameObject(label + "Button");
-            var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(140, 48);
-            go.AddComponent<Image>().color = color;
-            go.AddComponent<Button>();
-            var textGo = new GameObject("Text");
-            textGo.transform.SetParent(go.transform, false);
-            var text = textGo.AddComponent<Text>();
-            text.text = label;
-            text.fontSize = 28;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            var textRect = textGo.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = textRect.offsetMax = Vector2.zero;
-            return go;
-        }
-
         /// <summary>ThemeRole(Button) + ThemeTextRole(optional accent). ThemeApplier로 테마 색/폰트 적용.</summary>
         private static GameObject CreateThemedButton(string label, CircuitOneStrokeTheme theme, bool useAccentText)
         {
-            return CreateThemedTabButton(label, theme, null, useAccentText);
+            var go = new GameObject(label + "Button");
+            var rect = go.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(220, 64);
+            var img = go.AddComponent<Image>();
+            img.color = theme != null ? theme.primary : UIStyleConstants.Primary;
+            var role = go.AddComponent<ThemeRole>();
+            role.role = ThemeRole.Role.Button;
+            go.AddComponent<Button>();
+
+            var textGo = new GameObject("Text");
+            textGo.transform.SetParent(go.transform, false);
+            var textRect = textGo.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+            var text = textGo.AddComponent<Text>();
+            text.text = label;
+            text.fontSize = 26;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = (theme != null ? theme.textOnAccent : UIStyleConstants.TextOnAccent);
+            if (theme != null && theme.font != null) text.font = theme.font;
+            var textRole = textGo.AddComponent<ThemeTextRole>();
+            textRole.useAccentColor = useAccentText;
+            return go;
         }
 
         /// <summary>탭 버튼: 선택적 Skymon 아이콘(테마에서) + 라벨. 테마에 iconHome/iconShop/iconSettings 있으면 사용.</summary>

@@ -11,14 +11,15 @@ namespace CircuitOneStroke.View
     public class StrokeRenderer : MonoBehaviour
     {
         [Header("Line")]
-        [SerializeField] private float lineWidthBase = 0.22f;
+        [SerializeField] private float lineWidthBase = 0.08f;
+        [SerializeField] private bool singleLineStyle = true;
 
         [Header("Electric Flow (texture scroll)")]
         [SerializeField] private float flowSpeed = 2f;
         [SerializeField] private float textureScale = 4f;
 
         [Header("Spark bursts (at nodes, no continuous beads)")]
-        [SerializeField, Range(4f, 10f)] private float sparkBurstsPerSecond = 6f;
+        [SerializeField, Range(2f, 8f)] private float sparkBurstsPerSecond = 3f;
         [SerializeField, Range(0.1f, 0.25f)] private float sparkLifetimeMin = 0.12f;
         [SerializeField, Range(0.1f, 0.25f)] private float sparkLifetimeMax = 0.22f;
 
@@ -47,7 +48,8 @@ namespace CircuitOneStroke.View
             _lrCore = GetComponent<LineRenderer>();
             _coreSortOrder = ViewRenderingConstants.OrderStroke;
 
-            CreateOuterAndTrack();
+            if (!singleLineStyle)
+                CreateOuterAndTrack();
             ApplyElectricStyle();
             SetupElectricTexture();
             SetupSparkParticles();
@@ -77,13 +79,20 @@ namespace CircuitOneStroke.View
             float coreW = GetCoreWidth();
 
             _lrCore.useWorldSpace = true;
-            _lrCore.startColor = new Color(1f, 0.98f, 0.75f, 1f);
-            _lrCore.endColor = new Color(1f, 0.98f, 0.75f, 1f);
+            _lrCore.startColor = new Color(0.32f, 0.80f, 0.90f, 0.96f);
+            _lrCore.endColor = new Color(0.32f, 0.80f, 0.90f, 0.96f);
             _lrCore.startWidth = _lrCore.endWidth = coreW;
-            _lrCore.numCapVertices = 6;
-            _lrCore.numCornerVertices = 6;
+            _lrCore.numCapVertices = 5;
+            _lrCore.numCornerVertices = 4;
             var coreR = _lrCore.GetComponent<Renderer>();
             if (coreR != null) coreR.sortingOrder = _coreSortOrder;
+
+            if (singleLineStyle)
+            {
+                if (_lrOuter != null) _lrOuter.gameObject.SetActive(false);
+                if (_lrTrack != null) _lrTrack.gameObject.SetActive(false);
+                return;
+            }
 
             float outerW = coreW * 2f;
             _lrOuter.useWorldSpace = true;
@@ -144,10 +153,10 @@ namespace CircuitOneStroke.View
             var main = _sparks.main;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.startLifetime = sparkLifetimeMax;
-            main.startSpeed = 0.2f;
-            main.startSize = 0.14f;
-            main.startColor = new Color(1f, 0.98f, 0.75f, 0.95f);
-            main.maxParticles = 32;
+            main.startSpeed = 0.12f;
+            main.startSize = 0.09f;
+            main.startColor = new Color(0.70f, 0.92f, 1f, 0.75f);
+            main.maxParticles = 16;
             main.playOnAwake = false;
 
             var emission = _sparks.emission;
@@ -244,8 +253,11 @@ namespace CircuitOneStroke.View
             {
                 var p = _pathCache[i];
                 _lrCore.SetPosition(i, p);
-                _lrOuter.SetPosition(i, p);
-                _lrTrack.SetPosition(i, p);
+                if (!singleLineStyle)
+                {
+                    _lrOuter.SetPosition(i, p);
+                    _lrTrack.SetPosition(i, p);
+                }
             }
 
             float totalLen = 0f;
@@ -262,11 +274,11 @@ namespace CircuitOneStroke.View
 
             if (flickerEnabled)
             {
-                _flickerPhase += Time.deltaTime * 15f;
-                float coreAlpha = 0.85f + Mathf.PerlinNoise(_flickerPhase, 0f) * 0.15f;
+                _flickerPhase += Time.deltaTime * 9f;
+                float coreAlpha = 0.88f + Mathf.PerlinNoise(_flickerPhase, 0f) * 0.08f;
                 float outerAlpha = 0.45f + Mathf.PerlinNoise(_flickerPhase + 10f, 0f) * 0.2f;
-                _lrCore.startColor = _lrCore.endColor = new Color(1f, 0.98f, 0.75f, coreAlpha);
-                if (_outerMaterial != null)
+                _lrCore.startColor = _lrCore.endColor = new Color(0.32f, 0.80f, 0.90f, coreAlpha);
+                if (!singleLineStyle && _outerMaterial != null)
                     _outerMaterial.color = new Color(0.10f, 0.55f, 1f, outerAlpha);
             }
 
@@ -288,8 +300,11 @@ namespace CircuitOneStroke.View
         private void SetPositionCountAll(int count)
         {
             _lrCore.positionCount = count;
-            _lrOuter.positionCount = count;
-            _lrTrack.positionCount = count;
+            if (!singleLineStyle)
+            {
+                _lrOuter.positionCount = count;
+                _lrTrack.positionCount = count;
+            }
         }
 
         /// <summary>스파크 생성 위치: 접점(노드) 위주, 라인 중간은 최소화.</summary>

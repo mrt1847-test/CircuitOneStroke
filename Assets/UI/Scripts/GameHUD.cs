@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using CircuitOneStroke.Core;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.Services;
+using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.UI
 {
@@ -50,6 +51,7 @@ namespace CircuitOneStroke.UI
         [SerializeField] private Button hintButton;
 
         private GameStateMachine _stateMachine;
+        private CircuitOneStrokeTheme _theme;
 
         private void Start()
         {
@@ -90,6 +92,8 @@ namespace CircuitOneStroke.UI
                 hintButton.onClick.AddListener(OnHintClicked);
 
             RefreshHeartsDisplay();
+            ResolveTheme();
+            ApplyHudTheme();
             RefreshVisibility();
             UpdateLevelLabel();
         }
@@ -212,6 +216,8 @@ namespace CircuitOneStroke.UI
                 UpdateFailMessage();
                 RefreshFailDialogButtons();
             }
+
+            ApplyHudTheme();
         }
 
         private void UpdateFailMessage()
@@ -409,6 +415,108 @@ namespace CircuitOneStroke.UI
                     levelLoader.LoadCurrent();
             }
             RefreshVisibility();
+        }
+
+        private void ResolveTheme()
+        {
+            if (_theme != null) return;
+            var localApplier = GetComponent<ThemeApplier>();
+            if (localApplier != null && localApplier.Theme != null)
+            {
+                _theme = localApplier.Theme;
+                return;
+            }
+            var parentApplier = GetComponentInParent<ThemeApplier>();
+            if (parentApplier != null)
+                _theme = parentApplier.Theme;
+        }
+
+        private void ApplyHudTheme()
+        {
+            ResolveTheme();
+            ApplyPanelTheme(successPanel);
+            ApplyPanelTheme(failPanel);
+            ApplyOverlayTheme(outOfHeartsPanel);
+
+            ApplyButtonTheme(nextLevelButton);
+            ApplyButtonTheme(retryButton);
+            ApplyButtonTheme(homeButton);
+            ApplyButtonTheme(watchAdButton, _theme != null ? _theme.warning : UIStyleConstants.Warning);
+            ApplyButtonTheme(outOfHeartsWatchAdButton, _theme != null ? _theme.warning : UIStyleConstants.Warning);
+            ApplyButtonTheme(outOfHeartsBackButton);
+
+            ApplyTextTheme(failMessageText, accent: false);
+            ApplyTextTheme(levelLabel, accent: false);
+            ApplyTextThemeRecursive(successPanel, accent: false);
+            ApplyTextThemeRecursive(failPanel, accent: false);
+            ApplyTextThemeRecursive(outOfHeartsPanel, accent: false);
+        }
+
+        private void ApplyPanelTheme(GameObject panel)
+        {
+            if (panel == null) return;
+            var img = panel.GetComponent<Image>();
+            if (img == null) return;
+            if (_theme != null && _theme.panelSprite != null)
+            {
+                img.sprite = _theme.panelSprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.color = _theme != null ? _theme.panelBase : UIStyleConstants.PanelBase;
+            }
+        }
+
+        private void ApplyOverlayTheme(GameObject overlayPanel)
+        {
+            if (overlayPanel == null) return;
+            var img = overlayPanel.GetComponent<Image>();
+            if (img == null) return;
+            img.sprite = null;
+            img.type = Image.Type.Simple;
+            img.color = new Color(0f, 0f, 0f, 0.72f);
+        }
+
+        private void ApplyButtonTheme(Button button, Color? flatColor = null)
+        {
+            if (button == null) return;
+            var img = button.GetComponent<Image>();
+            if (img != null)
+            {
+                if (_theme != null && _theme.buttonSprite != null)
+                {
+                    img.sprite = _theme.buttonSprite;
+                    img.type = Image.Type.Sliced;
+                    img.color = Color.white;
+                }
+                else
+                {
+                    img.color = flatColor ?? (_theme != null ? _theme.primary : UIStyleConstants.Primary);
+                }
+            }
+
+            var text = button.GetComponentInChildren<Text>(true);
+            ApplyTextTheme(text, accent: true);
+        }
+
+        private void ApplyTextTheme(Text text, bool accent)
+        {
+            if (text == null) return;
+            if (_theme != null && _theme.font != null)
+                text.font = _theme.font;
+            text.color = _theme != null
+                ? (accent ? _theme.textOnAccent : _theme.textPrimary)
+                : (accent ? UIStyleConstants.TextOnAccent : UIStyleConstants.TextPrimary);
+        }
+
+        private void ApplyTextThemeRecursive(GameObject root, bool accent)
+        {
+            if (root == null) return;
+            var texts = root.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+                ApplyTextTheme(texts[i], accent);
         }
 
     }

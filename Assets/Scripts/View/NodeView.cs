@@ -6,9 +6,9 @@ using CircuitOneStroke.Core;
 namespace CircuitOneStroke.View
 {
     /// <summary>
-    /// ???몃뱶??2D ?쒖떆. SpriteRenderer + Collider2D ?꾩슂.
-    /// ?꾧뎄=BulbShape ?꾩씠肄?+ On/Off 湲濡쒖슦, ?ㅼ쐞移?SwitchLever ?꾩씠肄? ?뺥깭濡?援щ텇.
-    /// ?ㅽ봽?쇱씠?멸? null?대㈃ procedural fallback ?곸슜 (媛?쒖꽦 蹂댁옣).
+    /// ???몃뱶??2D ??�떆. SpriteRenderer + Collider2D ?꾩슂.
+    /// ?꾧뎄=BulbShape ?꾩씠??+ On/Off 湲濡쒖?? ??�쐞�?SwitchLever ?꾩씠?? ?뺥깭�??�щ텇.
+    /// ??�봽??�씠?�? null??�??procedural fallback ?곸슜 (媛??�꽦 蹂댁??.
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     [RequireComponent(typeof(Collider2D))]
@@ -17,11 +17,11 @@ namespace CircuitOneStroke.View
         public int NodeId { get; private set; }
 
         [Header("Bulb")]
-        [SerializeField] private Color bulbOffColor = new Color(0.25f, 0.55f, 0.95f, 1f);
-        [SerializeField] private Color bulbOnColor = new Color(0.35f, 0.65f, 1f, 1f);
+        [SerializeField] private Color bulbOffColor = new Color(0.86f, 0.92f, 0.97f, 1f);
+        [SerializeField] private Color bulbOnColor = new Color(0.99f, 0.80f, 0.34f, 1f);
         [Header("Switch")]
-        [SerializeField] private Color switchColor = new Color(0.55f, 0.45f, 0.85f, 1f);
-        [SerializeField] private Color switchHighlightColor = new Color(0.7f, 0.6f, 1f, 1f);
+        [SerializeField] private Color switchColor = new Color(0.70f, 0.80f, 0.88f, 1f);
+        [SerializeField] private Color switchHighlightColor = new Color(0.84f, 0.94f, 1f, 1f);
         [Header("Blocked")]
         [SerializeField] private Color blockedColor = new Color(0.22f, 0.22f, 0.24f, 1f);
         [SerializeField] private Color blockedHintColor = new Color(0.38f, 0.38f, 0.42f, 1f);
@@ -86,7 +86,7 @@ namespace CircuitOneStroke.View
                 transform.localScale = new Vector3(scale, scale, 1f);
         }
 
-        /// <summary>?ㅽ봽?쇱씠?멸? null?대㈃ procedural fallback. 媛?쒖꽦 蹂댁옣.</summary>
+        /// <summary>??�봽??�씠?�? null??�??procedural fallback. 媛??�꽦 蹂댁??</summary>
         private void EnsureBaseSprite()
         {
             if (_sr == null) return;
@@ -98,7 +98,7 @@ namespace CircuitOneStroke.View
             _sr.sortingOrder = ViewRenderingConstants.OrderNodes;
         }
 
-        /// <summary>?꾧뎄=BulbShape, ?ㅼ쐞移?SwitchLever. ?뺥깭濡?援щ텇.</summary>
+        /// <summary>?꾧뎄=BulbShape, ??�쐞�?SwitchLever. ?뺥깭�??�щ텇.</summary>
         private void EnsureSpriteAndIcon()
         {
             if (_sr == null) return;
@@ -109,21 +109,30 @@ namespace CircuitOneStroke.View
                 var iconGo = new GameObject("NodeIcon");
                 iconGo.transform.SetParent(transform, false);
                 iconGo.transform.localPosition = Vector3.zero;
-                iconGo.transform.localScale = Vector3.one * 0.65f;
+                iconGo.transform.localScale = Vector3.one * 0.44f;
                 _iconSr = iconGo.AddComponent<SpriteRenderer>();
                 _iconSr.sortingOrder = ViewRenderingConstants.OrderNodeIcon;
                 _iconSr.color = Color.white;
             }
 
             if (_nodeType == NodeType.Bulb)
-                _iconSr.sprite = ProceduralSprites.BulbShape;
-            else if (_nodeType == NodeType.Switch)
-                _iconSr.sprite = ProceduralSprites.SwitchLever;
-            else
+            {
                 _iconSr.sprite = ProceduralSprites.Circle;
+                _iconSr.transform.localScale = Vector3.one * 0.34f;
+            }
+            else if (_nodeType == NodeType.Switch)
+            {
+                _iconSr.sprite = ProceduralSprites.SwitchLever;
+                _iconSr.transform.localScale = Vector3.one * 0.50f;
+            }
+            else
+            {
+                _iconSr.sprite = ProceduralSprites.Circle;
+                _iconSr.transform.localScale = Vector3.one * 0.38f;
+            }
         }
 
-        /// <summary>LevelLoader媛 ?ㅽ룿 ???몄텧.</summary>
+        /// <summary>LevelLoader媛 ??�룿 ???몄텧.</summary>
         public void Setup(int nodeId, Vector2 pos, NodeType nodeType)
         {
             if (_sr == null)
@@ -148,22 +157,20 @@ namespace CircuitOneStroke.View
             col.radius = Mathf.Max(0.2f, size * colliderRadiusScale);
         }
 
-        /// <summary>?꾧뎄 諛⑸Ц ?щ?.</summary>
+        /// <summary>?꾧뎄 諛⑸Ц ???.</summary>
         public void SetVisited(bool visited)
         {
             _visited = visited;
             ApplyVisual();
         }
 
-        /// <summary>?ㅼ쐞移?媛뺤“ ?좉?.</summary>
+        /// <summary>??�쐞�?媛뺤???�?.</summary>
         public void SetHighlight(bool highlight)
         {
             if (_sr == null) return;
             if (_nodeType == NodeType.Switch)
             {
-                Color sc = IsBluePurpleHue(switchColor) ? new Color(0.55f, 0.45f, 0.85f, 1f) : switchColor;
-                Color hi = IsBluePurpleHue(switchHighlightColor) ? new Color(0.7f, 0.6f, 1f, 1f) : switchHighlightColor;
-                _sr.color = highlight ? hi : sc;
+                _sr.color = highlight ? switchHighlightColor : switchColor;
             }
         }
 
@@ -174,7 +181,7 @@ namespace CircuitOneStroke.View
             ApplyVisual();
         }
 
-        /// <summary>Paused ???ш컻 吏??瑗щ━ ?몃뱶) ?쒖떆. 耳쒕㈃ ?ㅼ????꾩뒪, ?꾨㈃ ?먮옒 ?ㅼ???蹂듭썝.</summary>
+        /// <summary>Paused ????�?吏???�щ━ ?몃뱶) ??�떆. ?�쒕????????꾩뒪, ?꾨㈃ ?�?�� ?????蹂듭??</summary>
         public void SetResumeHighlight(bool on)
         {
             if (_resumeHighlight == on) return;
@@ -202,20 +209,14 @@ namespace CircuitOneStroke.View
             _resumePulseCoroutine = null;
         }
 
-        private static bool IsBluePurpleHue(Color c)
-        {
-            Color.RGBToHSV(c, out float h, out _, out _);
-            return h >= 0.5f && h <= 0.9f;
-        }
-
-        /// <summary>?꾧뎄=諛⑸Ц ??耳쒖쭊 ?? ?ㅼ쐞移?怨좎젙 ?? 踰좎씠???꾩씠肄??숆린??</summary>
+        /// <summary>?꾧뎄=諛⑸Ц ???�쒖�??? ??�쐞�??�좎???? 踰좎????꾩씠????�린??</summary>
         private void ApplyVisual()
         {
             if (_sr == null) return;
             if (_nodeType == NodeType.Bulb)
             {
-                Color off = IsBluePurpleHue(bulbOffColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : bulbOffColor;
-                Color on = IsBluePurpleHue(bulbOnColor) ? new Color(0.35f, 0.65f, 1f, 1f) : bulbOnColor;
+                Color off = bulbOffColor;
+                Color on = bulbOnColor;
                 Color baseColor = _visited ? on : off;
                 if (_hintModeActive)
                 {
@@ -227,7 +228,7 @@ namespace CircuitOneStroke.View
                 _sr.color = baseColor;
                 if (_iconSr != null)
                 {
-                    Color icon = _visited ? new Color(1f, 1f, 0.95f, 1f) : new Color(0.9f, 0.9f, 1f, 1f);
+                    Color icon = _visited ? new Color(0.93f, 0.30f, 0.22f, 1f) : new Color(0.20f, 0.36f, 0.50f, 0.95f);
                     if (_hintModeActive && !_hintCandidate)
                         icon = new Color(icon.r * 0.45f, icon.g * 0.45f, icon.b * 0.45f, 0.28f);
                     _iconSr.color = icon;
@@ -235,7 +236,7 @@ namespace CircuitOneStroke.View
             }
             else if (_nodeType == NodeType.Switch)
             {
-                Color sc = IsBluePurpleHue(switchColor) ? new Color(0.55f, 0.45f, 0.85f, 1f) : switchColor;
+                Color sc = switchColor;
                 if (_hintModeActive)
                 {
                     if (_hintCandidate) sc = Color.Lerp(sc, Color.white, 0.25f);
@@ -265,3 +266,4 @@ namespace CircuitOneStroke.View
         }
     }
 }
+

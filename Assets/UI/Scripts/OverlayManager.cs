@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using CircuitOneStroke.Core;
+using CircuitOneStroke.UI.Theme;
 
 namespace CircuitOneStroke.UI
 {
@@ -35,6 +36,7 @@ namespace CircuitOneStroke.UI
         private bool _outOfHeartsVisible;
         private bool _confirmExitVisible;
         private Action _onConfirmExit;
+        private CircuitOneStrokeTheme _theme;
 
         public bool IsResultVisible => _resultVisible;
         public bool IsOutOfHeartsVisible => _outOfHeartsVisible;
@@ -52,6 +54,9 @@ namespace CircuitOneStroke.UI
             if (confirmExitConfirmButton != null) confirmExitConfirmButton.onClick.AddListener(OnConfirmExitConfirm);
             if (confirmExitCancelButton != null) confirmExitCancelButton.onClick.AddListener(OnConfirmExitCancel);
 
+            ResolveTheme();
+            ApplyPopupTheme();
+
             HideResult();
             HideOutOfHearts();
             if (confirmExitDialog != null) confirmExitDialog.SetActive(false);
@@ -65,6 +70,7 @@ namespace CircuitOneStroke.UI
 
         public void ShowResultWin(int levelId, Action onNext, Action onLevelSelect)
         {
+            ApplyPopupTheme();
             HideOutOfHearts();
             _resultVisible = true;
             if (resultDialogRoot != null)
@@ -85,6 +91,7 @@ namespace CircuitOneStroke.UI
 
         public void ShowResultLose(int hearts, Action onRetry, Action onLevelSelect, Action onWatchAd, bool showWatchAdButton)
         {
+            ApplyPopupTheme();
             HideOutOfHearts();
             _resultVisible = true;
             if (resultDialogRoot != null)
@@ -264,6 +271,7 @@ namespace CircuitOneStroke.UI
 
         public void ShowOutOfHearts(OutOfHeartsContext ctx, Action onWatchAd, Action onBack)
         {
+            ApplyPopupTheme();
             HideResult();
             _outOfHeartsVisible = true;
             if (outOfHeartsPanel != null) outOfHeartsPanel.SetActive(true);
@@ -279,6 +287,7 @@ namespace CircuitOneStroke.UI
 
         public void ShowConfirmExit(Action onConfirmExit)
         {
+            ApplyPopupTheme();
             _onConfirmExit = onConfirmExit;
             _confirmExitVisible = true;
             if (confirmExitDialog != null) confirmExitDialog.SetActive(true);
@@ -322,6 +331,115 @@ namespace CircuitOneStroke.UI
         public void ShowToast(string msg)
         {
             GameFeedback.RequestToast(msg);
+        }
+
+        private void ResolveTheme()
+        {
+            if (_theme != null) return;
+            var localApplier = GetComponent<ThemeApplier>();
+            if (localApplier != null && localApplier.Theme != null)
+            {
+                _theme = localApplier.Theme;
+                return;
+            }
+            var parentApplier = GetComponentInParent<ThemeApplier>();
+            if (parentApplier != null)
+                _theme = parentApplier.Theme;
+        }
+
+        private void ApplyPopupTheme()
+        {
+            ResolveTheme();
+
+            ApplyOverlayBackground(resultDialogRoot, ResultOverlayBackground);
+            ApplyPanelTheme(resultWinContent);
+            ApplyPanelTheme(resultLoseContent);
+            ApplyButtonTheme(resultWinNextButton);
+            ApplyButtonTheme(resultWinLevelSelectButton);
+            ApplyButtonTheme(resultLoseRetryButton);
+            ApplyButtonTheme(resultLoseLevelSelectButton);
+            ApplyButtonTheme(resultLoseWatchAdButton, _theme != null ? _theme.warning : UIStyleConstants.Warning);
+            ApplyTextTheme(resultLoseMessageText, accent: false);
+            ApplyTextThemeRecursive(resultWinContent, accent: false);
+            ApplyTextThemeRecursive(resultLoseContent, accent: false);
+
+            ApplyOverlayBackground(outOfHeartsPanel, new Color(0f, 0f, 0f, 0.72f));
+            ApplyButtonTheme(outOfHeartsWatchAdButton);
+            ApplyButtonTheme(outOfHeartsBackButton);
+            ApplyTextThemeRecursive(outOfHeartsPanel, accent: false);
+
+            ApplyOverlayBackground(confirmExitDialog, new Color(0f, 0f, 0f, 0.72f));
+            ApplyButtonTheme(confirmExitConfirmButton, _theme != null ? _theme.danger : UIStyleConstants.Danger);
+            ApplyButtonTheme(confirmExitCancelButton);
+            ApplyTextThemeRecursive(confirmExitDialog, accent: false);
+        }
+
+        private void ApplyOverlayBackground(GameObject root, Color fallbackColor)
+        {
+            if (root == null) return;
+            var img = root.GetComponent<Image>();
+            if (img == null) return;
+            img.sprite = null;
+            img.type = Image.Type.Simple;
+            img.color = fallbackColor;
+        }
+
+        private void ApplyPanelTheme(GameObject panel)
+        {
+            if (panel == null) return;
+            var img = panel.GetComponent<Image>();
+            if (img == null) return;
+            if (_theme != null && _theme.panelSprite != null)
+            {
+                img.sprite = _theme.panelSprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.color = _theme != null ? _theme.panelBase : UIStyleConstants.PanelBase;
+            }
+        }
+
+        private void ApplyButtonTheme(Button button, Color? flatColor = null)
+        {
+            if (button == null) return;
+            var img = button.GetComponent<Image>();
+            if (img != null)
+            {
+                if (_theme != null && _theme.buttonSprite != null)
+                {
+                    img.sprite = _theme.buttonSprite;
+                    img.type = Image.Type.Sliced;
+                    img.color = Color.white;
+                }
+                else
+                {
+                    img.color = flatColor ?? (_theme != null ? _theme.primary : UIStyleConstants.Primary);
+                }
+            }
+
+            var text = button.GetComponentInChildren<Text>(true);
+            ApplyTextTheme(text, accent: true);
+        }
+
+        private void ApplyTextTheme(Text text, bool accent)
+        {
+            if (text == null) return;
+            if (_theme != null && _theme.font != null)
+                text.font = _theme.font;
+            text.color = _theme != null
+                ? (accent ? _theme.textOnAccent : _theme.textPrimary)
+                : (accent ? UIStyleConstants.TextOnAccent : UIStyleConstants.TextPrimary);
+            EnsureTextRenders(text);
+        }
+
+        private void ApplyTextThemeRecursive(GameObject root, bool accent)
+        {
+            if (root == null) return;
+            var texts = root.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+                ApplyTextTheme(texts[i], accent);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CircuitOneStroke.Data
@@ -14,5 +15,30 @@ namespace CircuitOneStroke.Data
         public NodeData[] nodes;
         /// <summary>엣지 목록. a-b 연결, 다이오드/게이트 그룹 포함.</summary>
         public EdgeData[] edges;
+        public List<int> solutionPath = new List<int>();
+        // Stored as (minNodeId, maxNodeId) using Vector2Int for Unity serialization.
+        public List<Vector2Int> solutionEdgesUndirected = new List<Vector2Int>();
+
+        public HashSet<(int a, int b)> BuildSolutionEdgeSetUndirected()
+        {
+            var set = new HashSet<(int a, int b)>();
+            if (solutionEdgesUndirected == null)
+                return set;
+            for (int i = 0; i < solutionEdgesUndirected.Count; i++)
+            {
+                int a = solutionEdgesUndirected[i].x;
+                int b = solutionEdgesUndirected[i].y;
+                if (a == b)
+                    continue;
+                if (a > b)
+                {
+                    int t = a;
+                    a = b;
+                    b = t;
+                }
+                set.Add((a, b));
+            }
+            return set;
+        }
     }
 }

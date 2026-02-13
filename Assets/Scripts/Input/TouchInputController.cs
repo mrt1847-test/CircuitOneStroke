@@ -1,54 +1,35 @@
-using UnityEngine;
+using System.Collections.Generic;
 using CircuitOneStroke.Core;
 using CircuitOneStroke.View;
+using UnityEngine;
 
 namespace CircuitOneStroke.Input
 {
     public enum DrawState
     {
         Idle,
-        Dragging,
-        Paused,
+        Selecting,
         Completed,
         Failed
     }
 
     /// <summary>
-    /// Touch/mouse input for one-stroke path drawing.
-    /// Selection is previewed during drag and committed on release.
+    /// Tap-based one-stroke input:
+    /// 1) tap a start node,
+    /// 2) legal next nodes are highlighted,
+    /// 3) tap a highlighted node to commit one edge.
     /// </summary>
     public class TouchInputController : MonoBehaviour
     {
         [SerializeField] private LevelLoader levelLoader;
         [SerializeField] private Camera mainCamera;
-        [Tooltip("Base radius for snap/commit tuning.")]
-        [SerializeField] private float snapRadiusBase = 1.5f;
-        [Tooltip("Hysteresis value kept for compatibility with existing tuning.")]
-        [SerializeField] private float snapHysteresisBase = 0.2f;
         [SerializeField] private LayerMask nodeLayer = -1;
-        [Tooltip("When paused, touch near the tail node to resume drawing.")]
-        [SerializeField] private float resumeRadius = 0.6f;
-
-        [Header("Release Commit")]
-        [Tooltip("Minimum drag distance from current node before a preview target appears.")]
-        [SerializeField] private float minPreviewDragDistance = 0.32f;
-        [SerializeField] private float previewLineWidth = 0.12f;
-        [SerializeField] private float previewLockedLineWidth = 0.24f;
-        [SerializeField] private Color previewLineColor = new Color(0.90f, 0.95f, 1f, 0.70f);
-        [SerializeField] private Color previewLockedLineColor = new Color(1f, 0.98f, 0.75f, 0.98f);
 
         private GameStateMachine _stateMachine;
-        private int _lastCommittedNodeId = -1;
-        private int _snapCandidateId = -1;
-        private Vector2 _lastPointerWorld;
         private DrawState _drawState = DrawState.Idle;
-
-        private LineRenderer _previewLine;
-        private Material _previewMaterial;
 
         private void Start()
         {
-            EnsurePreviewLine();
             if (levelLoader != null)
             {
                 levelLoader.OnStateMachineChanged += HandleStateMachineChanged;
@@ -71,12 +52,6 @@ namespace CircuitOneStroke.Input
                 levelLoader.OnStateMachineChanged -= HandleStateMachineChanged;
             if (_stateMachine != null)
                 _stateMachine.OnStateChanged -= OnGameStateChanged;
-
-            if (_previewMaterial != null)
-            {
-                if (Application.isPlaying) Destroy(_previewMaterial);
-                else DestroyImmediate(_previewMaterial);
-            }
         }
 
         private void HandleStateMachineChanged(GameStateMachine stateMachine)
@@ -93,9 +68,8 @@ namespace CircuitOneStroke.Input
             }
             else
             {
-                _lastCommittedNodeId = -1;
-                _snapCandidateId = -1;
-                ClearPreviewLine();
+                _drawState = DrawState.Idle;
+                levelLoader?.SetMoveHints(-1, null, null);
             }
         }
 
@@ -103,31 +77,29 @@ namespace CircuitOneStroke.Input
         {
             if (state == GameState.Idle)
             {
-                _lastCommittedNodeId = -1;
-                _snapCandidateId = -1;
                 _drawState = DrawState.Idle;
-                HighlightTail(false);
                 levelLoader?.SetMoveHints(-1, null, null);
-                ClearPreviewLine();
+                return;
             }
-            else if (state == GameState.Drawing)
+
+            if (state == GameState.Drawing)
             {
-                if (_drawState != DrawState.Paused)
-                    _drawState = DrawState.Dragging;
+                _drawState = DrawState.Selecting;
+                RefreshHintsFromCurrent();
+                return;
             }
-            else if (state == GameState.LevelComplete)
+
+            if (state == GameState.LevelComplete)
             {
                 _drawState = DrawState.Completed;
-                HighlightTail(false);
                 levelLoader?.SetMoveHints(-1, null, null);
-                ClearPreviewLine();
+                return;
             }
-            else if (state == GameState.LevelFailed || state == GameState.OutOfHearts)
+
+            if (state == GameState.LevelFailed || state == GameState.OutOfHearts)
             {
                 _drawState = DrawState.Failed;
-                HighlightTail(false);
                 levelLoader?.SetMoveHints(-1, null, null);
-                ClearPreviewLine();
             }
         }
 
@@ -139,183 +111,142 @@ namespace CircuitOneStroke.Input
             if (UnityEngine.Input.touchCount > 0)
             {
                 var touch = UnityEngine.Input.GetTouch(0);
-                var worldPos = mainCamera != null
-                    ? mainCamera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, -mainCamera.transform.position.z))
-                    : (Vector3)touch.position;
-                worldPos.z = 0f;
-
-                switch (touch.phase)
+                if (touch.phase == TouchPhase.Began)
                 {
-                    case TouchPhase.Began:
-                        HandleTouchStart(worldPos);
-                        break;
-                    case TouchPhase.Moved:
-                    case TouchPhase.Stationary:
-                        HandleTouchMove(worldPos);
-                        break;
-                    case TouchPhase.Ended:
-                    case TouchPhase.Canceled:
-                        HandleTouchEnd();
-                        break;
+                    Vector2 worldPos = ScreenToWorld(touch.position);
+                    HandleTap(worldPos);
                 }
+                return;
             }
-            else
+
+            if (Application.isEditor && UnityEngine.Input.GetMouseButtonDown(0))
             {
-                if (Application.isEditor)
-                    HandleEditorInput();
+                Vector2 worldPos = ScreenToWorld(UnityEngine.Input.mousePosition);
+                HandleTap(worldPos);
             }
         }
 
-        private void HandleEditorInput()
+        private Vector2 ScreenToWorld(Vector3 screenPos)
         {
             var cam = mainCamera != null ? mainCamera : Camera.main;
-            if (cam == null) return;
-
-            var mouse = UnityEngine.Input.mousePosition;
-            mouse.z = -cam.transform.position.z;
-            var worldPos = cam.ScreenToWorldPoint(mouse);
-            worldPos.z = 0f;
-
-            if (UnityEngine.Input.GetMouseButtonDown(0))
-                HandleTouchStart(worldPos);
-            else if (UnityEngine.Input.GetMouseButton(0))
-                HandleTouchMove(worldPos);
-            else if (UnityEngine.Input.GetMouseButtonUp(0))
-                HandleTouchEnd();
+            if (cam == null) return screenPos;
+            screenPos.z = -cam.transform.position.z;
+            var world = cam.ScreenToWorldPoint(screenPos);
+            return new Vector2(world.x, world.y);
         }
 
-        private void HandleTouchStart(Vector3 worldPos)
+        private void HandleTap(Vector2 worldPos)
         {
-            if (_drawState == DrawState.Dragging)
-                return;
-
-            if (_drawState == DrawState.Paused)
-            {
-                if (IsTouchNearTail(worldPos))
-                    ResumeFromTail();
-                else
-                    Core.GameFeedback.RequestToast(Core.Localization.Get("toast_continue_from_tail"));
-                return;
-            }
+            int nodeId = HitNode(worldPos);
+            if (nodeId < 0) return;
 
             if (_drawState == DrawState.Completed || _drawState == DrawState.Failed)
                 return;
 
-            if (_stateMachine.State != GameState.Idle)
-                return;
-
-            int nodeId = HitNode(worldPos);
-            if (nodeId < 0) return;
-
-            _stateMachine.StartStroke(nodeId);
-            if (_stateMachine.State != GameState.Drawing) return;
-
-            _drawState = DrawState.Dragging;
-            _lastCommittedNodeId = nodeId;
-            _snapCandidateId = -1;
-            _lastPointerWorld = worldPos;
-            ClearPreviewLine();
-            UpdateNodeVisitedStates();
-        }
-
-        private void HandleTouchMove(Vector3 worldPos)
-        {
-            if (_stateMachine.State != GameState.Drawing || _drawState != DrawState.Dragging) return;
-
-            _lastPointerWorld = worldPos;
-
-            int current = _stateMachine.Runtime.CurrentNodeId;
-            var neighbors = _stateMachine.Runtime.Graph.GetNeighbors(current);
-            if (neighbors == null)
+            if (_stateMachine.State == GameState.Idle)
             {
-                ClearPreviewLine();
+                TryStartAt(nodeId);
                 return;
             }
 
-            var legalNodes = new System.Collections.Generic.List<int>(neighbors.Count);
-            var legalEdgeIds = new System.Collections.Generic.List<int>(neighbors.Count);
-            CollectLegalMoves(current, neighbors, legalNodes, legalEdgeIds);
-            levelLoader?.SetMoveHints(current, legalNodes, legalEdgeIds);
-
-            _snapCandidateId = SelectPreviewTargetNode(current, legalNodes, worldPos);
-            UpdatePreviewLine(current, worldPos, _snapCandidateId);
+            if (_stateMachine.State == GameState.Drawing && _drawState == DrawState.Selecting)
+            {
+                TryCommitTappedNode(nodeId);
+            }
         }
 
-        private void HandleTouchEnd()
+        private int HitNode(Vector2 worldPos)
         {
-            if (_drawState != DrawState.Dragging) return;
-
-            TryCommitPreviewSelection();
-
-            var rt = _stateMachine.Runtime;
-            if (rt != null && rt.VisitedBulbs.Count == rt.TotalBulbCount)
-                _stateMachine.EndStroke();
-            else
-                SetPaused();
-
-            ClearPreviewLine();
-        }
-
-        private int HitNode(Vector3 worldPos)
-        {
-            var hit = Physics2D.OverlapPoint(new Vector2(worldPos.x, worldPos.y), nodeLayer);
+            var hit = Physics2D.OverlapPoint(worldPos, nodeLayer);
             if (hit == null) return -1;
             var nv = hit.GetComponent<NodeView>();
             return nv != null ? nv.NodeId : -1;
         }
 
-        private void UpdateNodeVisitedStates()
+        private void TryStartAt(int nodeId)
         {
-            if (levelLoader != null)
-                levelLoader.RefreshNodeViews();
+            _stateMachine.StartStroke(nodeId);
+            if (_stateMachine.State != GameState.Drawing) return;
+            _drawState = DrawState.Selecting;
+            UpdateNodeVisitedStates();
+            RefreshHintsFromCurrent();
         }
 
-        private int GetTailNodeId()
+        private void TryCommitTappedNode(int targetNodeId)
         {
-            return _stateMachine != null && _stateMachine.Runtime != null ? _stateMachine.Runtime.CurrentNodeId : -1;
+            var runtime = _stateMachine.Runtime;
+            if (runtime == null) return;
+            int fromNodeId = runtime.CurrentNodeId;
+            if (fromNodeId < 0) return;
+            if (targetNodeId == fromNodeId)
+            {
+                RefreshHintsFromCurrent();
+                return;
+            }
+
+            var result = _stateMachine.TryMoveTo(targetNodeId);
+            if (result == MoveResult.Ok)
+            {
+                UpdateNodeVisitedStates();
+                Core.GameFeedback.Instance?.PlayMoveOk();
+
+                if (runtime.VisitedBulbs.Count == runtime.TotalBulbCount)
+                    _stateMachine.EndStroke();
+                else
+                    RefreshHintsFromCurrent();
+                return;
+            }
+
+            if (result == MoveResult.Reject)
+            {
+                bool showRejectFeedback = Core.GameSettings.Instance?.Data?.rejectFeedbackEnabled ?? true;
+                if (showRejectFeedback && levelLoader != null && runtime.Graph.TryGetEdge(fromNodeId, targetNodeId, out var edge))
+                    levelLoader.GetEdgeView(edge.id)?.SetRejectFlash(true);
+                Core.GameFeedback.Instance?.PlayReject();
+                Core.GameFeedback.RequestToast("Invalid move");
+                RefreshHintsFromCurrent();
+                return;
+            }
+
+            if (result == MoveResult.HardFail)
+            {
+                Core.GameFeedback.Instance?.PlayFail();
+                _stateMachine.OnHardFail("revisit_node");
+            }
         }
 
-        private bool IsTouchNearTail(Vector2 worldPos)
+        private void RefreshHintsFromCurrent()
         {
-            int tailId = GetTailNodeId();
-            if (tailId < 0) return false;
-            Vector2 tailPos = _stateMachine.Runtime.GetNodePosition(tailId);
-            return Vector2.Distance(worldPos, tailPos) <= resumeRadius;
-        }
+            if (_stateMachine?.Runtime == null || levelLoader == null)
+                return;
+            if (_stateMachine.State != GameState.Drawing)
+            {
+                levelLoader.SetMoveHints(-1, null, null);
+                return;
+            }
 
-        private void SetPaused()
-        {
-            _drawState = DrawState.Paused;
-            HighlightTail(true);
-            levelLoader?.SetMoveHints(-1, null, null);
-            _snapCandidateId = -1;
-            ClearPreviewLine();
-        }
+            int current = _stateMachine.Runtime.CurrentNodeId;
+            if (current < 0)
+            {
+                levelLoader.SetMoveHints(-1, null, null);
+                return;
+            }
 
-        private void ResumeFromTail()
-        {
-            _drawState = DrawState.Dragging;
-            HighlightTail(false);
-            levelLoader?.SetMoveHints(-1, null, null);
-            _snapCandidateId = -1;
-            ClearPreviewLine();
-        }
+            var neighbors = _stateMachine.Runtime.Graph.GetNeighbors(current);
+            var legalNodes = new List<int>(neighbors != null ? neighbors.Count : 0);
+            var legalEdgeIds = new List<int>(neighbors != null ? neighbors.Count : 0);
+            CollectLegalMoves(current, neighbors, legalNodes, legalEdgeIds);
+            levelLoader.SetMoveHints(current, legalNodes, legalEdgeIds);
 
-        private void HighlightTail(bool on)
-        {
-            if (levelLoader == null) return;
-            int tailId = GetTailNodeId();
-            if (tailId < 0) return;
-            var nv = levelLoader.GetNodeView(tailId);
-            if (nv != null)
-                nv.SetResumeHighlight(on);
+            if (legalNodes.Count == 0 && _stateMachine.Runtime.VisitedBulbs.Count < _stateMachine.Runtime.TotalBulbCount)
+                _stateMachine.EndStroke();
         }
 
         private void CollectLegalMoves(
             int current,
-            System.Collections.Generic.IReadOnlyList<(int neighborId, CircuitOneStroke.Data.EdgeData edge)> neighbors,
-            System.Collections.Generic.List<int> legalNodes,
-            System.Collections.Generic.List<int> legalEdgeIds)
+            IReadOnlyList<(int neighborId, CircuitOneStroke.Data.EdgeData edge)> neighbors,
+            List<int> legalNodes,
+            List<int> legalEdgeIds)
         {
             legalNodes.Clear();
             legalEdgeIds.Clear();
@@ -339,172 +270,9 @@ namespace CircuitOneStroke.Input
             }
         }
 
-        private void TryCommitPreviewSelection()
+        private void UpdateNodeVisitedStates()
         {
-            if (_stateMachine == null || _stateMachine.Runtime == null) return;
-            if (_stateMachine.State != GameState.Drawing) return;
-
-            int fromNode = _stateMachine.Runtime.CurrentNodeId;
-            if (fromNode < 0) return;
-
-            var neighbors = _stateMachine.Runtime.Graph.GetNeighbors(fromNode);
-            if (neighbors == null || neighbors.Count == 0) return;
-
-            var legalNodes = new System.Collections.Generic.List<int>(neighbors.Count);
-            var legalEdgeIds = new System.Collections.Generic.List<int>(neighbors.Count);
-            CollectLegalMoves(fromNode, neighbors, legalNodes, legalEdgeIds);
-
-            int targetNode = SelectPreviewTargetNode(fromNode, legalNodes, _lastPointerWorld);
-            if (targetNode < 0) return;
-            if (!CanCommitOnRelease(fromNode, targetNode, _lastPointerWorld)) return;
-            if (targetNode == _lastCommittedNodeId || _stateMachine.Runtime.StrokeContains(targetNode)) return;
-
-            var result = _stateMachine.TryMoveTo(targetNode);
-            if (result == MoveResult.Ok)
-            {
-                _lastCommittedNodeId = targetNode;
-                UpdateNodeVisitedStates();
-                Core.GameFeedback.Instance?.PlayMoveOk();
-                return;
-            }
-
-            if (result == MoveResult.Reject)
-            {
-                bool showRejectFeedback = Core.GameSettings.Instance?.Data?.rejectFeedbackEnabled ?? true;
-                if (showRejectFeedback && levelLoader != null && _stateMachine.Runtime.Graph.TryGetEdge(fromNode, targetNode, out var edge))
-                    levelLoader.GetEdgeView(edge.id)?.SetRejectFlash(true);
-                Core.GameFeedback.Instance?.PlayReject();
-                Core.GameFeedback.RequestToast("Invalid move");
-                return;
-            }
-
-            if (result == MoveResult.HardFail)
-            {
-                Core.GameFeedback.Instance?.PlayFail();
-                _stateMachine.OnHardFail("revisit_node");
-            }
-        }
-
-        private int SelectPreviewTargetNode(int currentNodeId, System.Collections.Generic.IReadOnlyList<int> legalNodes, Vector2 worldPos)
-        {
-            if (_stateMachine?.Runtime == null || legalNodes == null || legalNodes.Count == 0) return -1;
-
-            float snapA = Core.GameSettings.Instance?.Data?.snapAssist ?? 0.7f;
-            Vector2 currentPos = _stateMachine.Runtime.GetNodePosition(currentNodeId);
-            Vector2 drag = worldPos - currentPos;
-            float dragLen = drag.magnitude;
-            if (dragLen < minPreviewDragDistance) return -1;
-
-            Vector2 dragDir = drag / Mathf.Max(0.0001f, dragLen);
-            float maxAngleDeg = Mathf.Lerp(36f, 20f, snapA);
-            float maxPerpRatio = Mathf.Lerp(0.60f, 0.34f, snapA);
-
-            int bestNode = -1;
-            float bestScore = float.MaxValue;
-            for (int i = 0; i < legalNodes.Count; i++)
-            {
-                int neighborId = legalNodes[i];
-                Vector2 neighborPos = _stateMachine.Runtime.GetNodePosition(neighborId);
-                Vector2 toNeighbor = neighborPos - currentPos;
-                float edgeLen = toNeighbor.magnitude;
-                if (edgeLen <= 0.001f) continue;
-                Vector2 edgeDir = toNeighbor / edgeLen;
-
-                float angle = Vector2.Angle(dragDir, edgeDir);
-                if (angle > maxAngleDeg) continue;
-
-                float along = Vector2.Dot(drag, edgeDir);
-                if (along <= edgeLen * 0.10f) continue;
-
-                float perp = Mathf.Abs(drag.x * edgeDir.y - drag.y * edgeDir.x);
-                float perpRatio = perp / edgeLen;
-                if (perpRatio > maxPerpRatio) continue;
-
-                float distToNeighbor = Vector2.Distance(worldPos, neighborPos);
-                float score = angle * 2.2f + perpRatio * 90f + distToNeighbor * 0.45f;
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    bestNode = neighborId;
-                }
-            }
-
-            return bestNode;
-        }
-
-        private bool CanCommitOnRelease(int fromNodeId, int toNodeId, Vector2 releaseWorldPos)
-        {
-            Vector2 from = _stateMachine.Runtime.GetNodePosition(fromNodeId);
-            Vector2 to = _stateMachine.Runtime.GetNodePosition(toNodeId);
-            Vector2 edge = to - from;
-            float edgeLen = edge.magnitude;
-            if (edgeLen <= 0.001f) return false;
-
-            float snapA = Core.GameSettings.Instance?.Data?.snapAssist ?? 0.7f;
-            float snapR = snapRadiusBase * (0.75f + 0.35f * snapA);
-            float commitRadius = snapR * 0.60f;
-
-            float distToTarget = Vector2.Distance(releaseWorldPos, to);
-            if (distToTarget <= commitRadius) return true;
-
-            Vector2 drag = releaseWorldPos - from;
-            Vector2 edgeDir = edge / edgeLen;
-            float along = Vector2.Dot(drag, edgeDir);
-            if (along <= edgeLen * 0.55f) return false;
-
-            float perp = Mathf.Abs(drag.x * edgeDir.y - drag.y * edgeDir.x);
-            return perp <= edgeLen * 0.16f;
-        }
-
-        private void EnsurePreviewLine()
-        {
-            if (_previewLine != null) return;
-
-            var go = new GameObject("DragPreviewLine");
-            go.transform.SetParent(transform, false);
-            _previewLine = go.AddComponent<LineRenderer>();
-            _previewLine.useWorldSpace = true;
-            _previewLine.positionCount = 2;
-            _previewLine.numCapVertices = 6;
-            _previewLine.numCornerVertices = 4;
-            _previewLine.alignment = LineAlignment.View;
-            _previewLine.textureMode = LineTextureMode.Stretch;
-
-            var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-            _previewMaterial = new Material(shader);
-            _previewLine.material = _previewMaterial;
-
-            var r = _previewLine.GetComponent<Renderer>();
-            if (r != null)
-                r.sortingOrder = ViewRenderingConstants.OrderNodeIcon + 1;
-
-            ClearPreviewLine();
-        }
-
-        private void UpdatePreviewLine(int fromNodeId, Vector2 pointerWorld, int targetNodeId)
-        {
-            if (_stateMachine?.Runtime == null) return;
-            EnsurePreviewLine();
-
-            Vector2 from = _stateMachine.Runtime.GetNodePosition(fromNodeId);
-            Vector2 to = targetNodeId >= 0 ? _stateMachine.Runtime.GetNodePosition(targetNodeId) : pointerWorld;
-
-            _previewLine.enabled = true;
-            _previewLine.startWidth = _previewLine.endWidth = targetNodeId >= 0 ? previewLockedLineWidth : previewLineWidth;
-            Color c = targetNodeId >= 0 ? previewLockedLineColor : previewLineColor;
-            _previewLine.startColor = c;
-            _previewLine.endColor = c;
-            _previewLine.SetPosition(0, new Vector3(from.x, from.y, -0.08f));
-            _previewLine.SetPosition(1, new Vector3(to.x, to.y, -0.08f));
-        }
-
-        private void ClearPreviewLine()
-        {
-            if (_previewLine == null) return;
-            _previewLine.enabled = false;
-            _previewLine.positionCount = 2;
-            _previewLine.SetPosition(0, Vector3.zero);
-            _previewLine.SetPosition(1, Vector3.zero);
+            levelLoader?.RefreshNodeViews();
         }
     }
 }

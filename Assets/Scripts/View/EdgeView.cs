@@ -14,11 +14,11 @@ namespace CircuitOneStroke.View
         public int EdgeId { get; private set; }
 
         [Header("Colors")]
-        [SerializeField] private Color wireColor = new Color(0.25f, 0.55f, 0.95f, 1f);
-        [SerializeField] private Color wireHighlightColor = new Color(0.35f, 0.65f, 1f, 1f);
-        [SerializeField] private Color gateClosedColor = new Color(0.75f, 0.35f, 0.35f, 1f);
-        [SerializeField] private Color diodeRejectColor = new Color(1f, 0.4f, 0.3f, 1f);
-        [SerializeField] private Color diodeMarkerColor = new Color(1f, 0.88f, 0.4f, 1f);
+        [SerializeField] private Color wireColor = new Color(0.12f, 0.25f, 0.38f, 1f);
+        [SerializeField] private Color wireHighlightColor = new Color(0.30f, 0.72f, 0.86f, 1f);
+        [SerializeField] private Color gateClosedColor = new Color(0.70f, 0.28f, 0.28f, 1f);
+        [SerializeField] private Color diodeRejectColor = new Color(0.95f, 0.36f, 0.28f, 1f);
+        [SerializeField] private Color diodeMarkerColor = new Color(0.98f, 0.84f, 0.34f, 1f);
 
         private LineRenderer _lr;
         private LineRenderer _lrSegmentA;
@@ -51,8 +51,10 @@ namespace CircuitOneStroke.View
             }
             _lr.positionCount = 2;
             _lr.useWorldSpace = true;
-            if (_lr.startWidth < 0.10f) _lr.startWidth = 0.12f;
-            if (_lr.endWidth < 0.10f) _lr.endWidth = 0.12f;
+            if (_lr.startWidth < 0.06f) _lr.startWidth = 0.075f;
+            if (_lr.endWidth < 0.06f) _lr.endWidth = 0.075f;
+            _lr.numCapVertices = 5;
+            _lr.numCornerVertices = 4;
             var r = _lr.GetComponent<Renderer>();
             if (r != null)
                 r.sortingOrder = ViewRenderingConstants.OrderEdges;
@@ -126,13 +128,13 @@ namespace CircuitOneStroke.View
             _gateClosedMarker.transform.SetParent(transform);
             var mid = Vector2.Lerp(_posA, _posB, 0.5f);
             _gateClosedMarker.transform.position = new Vector3(mid.x, mid.y, -0.07f);
-            float scale = Mathf.Max(ViewRenderingConstants.GateMarkerMinScale, 0.4f);
+            float scale = Mathf.Max(ViewRenderingConstants.GateMarkerMinScale, 0.32f);
 
             var bgGo = new GameObject("GateBg");
             bgGo.transform.SetParent(_gateClosedMarker.transform, false);
             var bg = bgGo.AddComponent<SpriteRenderer>();
             bg.sprite = ProceduralSprites.Circle;
-            bg.color = new Color(0.15f, 0.12f, 0.18f, 0.98f);
+            bg.color = new Color(0.10f, 0.18f, 0.26f, 0.96f);
             bg.sortingOrder = ViewRenderingConstants.OrderGateMarker - 1;
             bgGo.transform.localScale = Vector3.one * 1.4f;
 
@@ -172,7 +174,7 @@ namespace CircuitOneStroke.View
             var dir = (to - from).normalized;
             float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
             _diodeMarker.rotation = Quaternion.Euler(0, 0, angle);
-            _diodeMarker.localScale = Vector3.one * Mathf.Max(ViewRenderingConstants.DiodeMarkerMinScale, 0.4f);
+            _diodeMarker.localScale = Vector3.one * Mathf.Max(ViewRenderingConstants.DiodeMarkerMinScale, 0.28f);
         }
 
         /// <summary>寃뚯씠???ロ옒 ???좎쓣 ?딄?(gap)?쇰줈 ?쒖떆. A---[gap]---B. ??媛?LineRenderer濡??ㅼ젣 ?딄?.</summary>
@@ -183,7 +185,7 @@ namespace CircuitOneStroke.View
             _lr.enabled = !gateClosed;
             if (gateClosed)
             {
-                float gap = 0.55f;
+                float gap = 0.36f;
                 var mid = Vector2.Lerp(_posA, _posB, 0.5f);
                 var dir = (_posB - _posA).normalized;
                 var gapStart = mid - dir * gap;
@@ -289,7 +291,7 @@ namespace CircuitOneStroke.View
             bool colorBlind = GameSettings.Instance?.Data?.colorBlindMode ?? false;
             Color rejectCol = colorBlind ? new Color(0.9f, 0.5f, 0.1f, 1f) : diodeRejectColor;
             Color gateCol = colorBlind ? new Color(0.3f, 0.4f, 0.7f, 1f) : gateClosedColor;
-            Color wire = IsOldDarkHue(wireColor) ? new Color(0.25f, 0.55f, 0.95f, 1f) : wireColor;
+            Color wire = IsOldDarkHue(wireColor) ? new Color(0.12f, 0.25f, 0.38f, 1f) : wireColor;
 
             if (_showReject)
             {
@@ -312,7 +314,7 @@ namespace CircuitOneStroke.View
                     lineCol = new Color(lineCol.r * 0.45f, lineCol.g * 0.45f, lineCol.b * 0.45f, 0.20f);
             }
             _lr.startColor = _lr.endColor = lineCol;
-            float width = _hintModeActive ? (_hintCandidate ? 0.16f : 0.09f) : 0.12f;
+            float width = _hintModeActive ? (_hintCandidate ? 0.085f : 0.060f) : 0.075f;
             _lr.startWidth = _lr.endWidth = width;
             if (_lr.material != null)
                 _lr.material.color = Color.white;

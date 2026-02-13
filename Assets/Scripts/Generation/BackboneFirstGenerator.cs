@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using Random = System.Random;
+using System.Diagnostics;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.Solver;
+using UnityEngine;
+using Random = System.Random;
 
 namespace CircuitOneStroke.Generation
 {
-    /// <summary>Parameters for backbone-first level generation (16–25 nodes).</summary>
     public struct GenerateParams
     {
         public int NodeCountMin;
@@ -15,7 +15,6 @@ namespace CircuitOneStroke.Generation
         public int TargetSolutionsMin;
         public int TargetSolutionsMax;
         public DifficultyTier Difficulty;
-        /// <summary>Target average degree range (e.g. 2.4–3.2).</summary>
         public float TargetAvgDegreeMin;
         public float TargetAvgDegreeMax;
         public int Seed;
@@ -33,241 +32,552 @@ namespace CircuitOneStroke.Generation
         };
     }
 
+    public struct GenerationStats
+    {
+        public int finalN;
+        public int attempts;
+        public long timeMs;
+        public int solutionStraightRun;
+        public float perimeterBias;
+        public int decoyEdgeCount;
+        public float mcSuccessRate;
+    }
+
     /// <summary>
-    /// Backbone-first generator: builds a solution path first, then adds decoy edges for meaningful choices.
-    /// Targets 16–25 nodes; decoys should fail later (3–8 steps), not instant reject.
+    /// Solution-first + incremental expansion generator:
+    /// start N=3, insert nodes into the solution path, then add bounded decoys with rollback checks.
     /// </summary>
     public static class BackboneFirstGenerator
     {
-        private const int LayoutRetryCount = 8;
+        private const int DefaultMaxAttemptsPerNode = 30;
+        private const int DefaultMaxTotalAttempts = 240;
+        private const int DefaultRuntimeTimeBudgetMs = 180;
+        private const int DefaultEditorTimeBudgetMs = 3000;
+        private const int DefaultSeedRetryCount = 6;
+        private const float DefaultMaxDecoyPerNodeMedium = 1.35f;
+        private const float DefaultMaxDecoyPerNodeHard = 2.0f;
+        private const int DefaultTrialsK = 80;
+        private const float ForcedRatioRollbackThreshold = 0.74f;
+        private const float HardSuccessRateRollbackThreshold = 0.42f;
+        private const int MaxNodeDegree = 5;
+        private const int MaxLayoutRetries = 12;
         private const float JitterFractionOfAvgEdge = 0.04f;
-        private const int MaxAttemptsAddDecoy = 200;
-        private const int GateTradeoffRetries = 15;
 
-        /// <summary>Generate a single level. Deterministic for given seed.</summary>
         public static LevelData Generate(GenerateParams p)
         {
             var rng = new Random(p.Seed);
-            int N = rng.Next(p.NodeCountMin, p.NodeCountMax + 1);
-            N = Mathf.Clamp(N, 16, LevelSolver.MaxNodesSupported);
-
-            // Stage 1: Topology
-            int switchCount = p.Difficulty == DifficultyTier.Easy ? rng.Next(0, 2) :
-                p.Difficulty == DifficultyTier.Medium ? rng.Next(1, 3) : rng.Next(2, 4);
-            switchCount = Mathf.Min(switchCount, N - 1);
-
-            var backbone = new List<int>();
-            for (int i = 0; i < N; i++) backbone.Add(i);
-
-            var edgeSet = new HashSet<(int a, int b)>();
-            for (int i = 0; i < N - 1; i++)
+            int targetN = rng.Next(p.NodeCountMin, p.NodeCountMax + 1);
+            var opts = new GenerationOptions
             {
-                int a = backbone[i], b = backbone[i + 1];
-                edgeSet.Add((Math.Min(a, b), Math.Max(a, b)));
-            }
+                IncludeSwitch = false,
+                SwitchCount = 0,
+                RequireNormalHardVariety = p.Difficulty == DifficultyTier.Hard
+            };
 
-            float targetAvg = (p.TargetAvgDegreeMin + p.TargetAvgDegreeMax) * 0.5f;
-            int targetTotalDegree = Mathf.RoundToInt(N * targetAvg);
-            int currentTotal = 2 * (N - 1);
-            int maxHubs = p.Difficulty == DifficultyTier.Hard ? 2 : 1;
-            var degree = new int[N];
-            for (int i = 0; i < N - 1; i++) { degree[i]++; degree[i + 1]++; }
+            if (!GenerateSolutionFirst(targetN, p.Seed, opts, out LevelData level, out _))
+                throw new InvalidOperationException($"GenerateSolutionFirst failed for targetN={targetN}, seed={p.Seed}");
+            return level;
+        }
 
-            for (int attempt = 0; attempt < MaxAttemptsAddDecoy && currentTotal < targetTotalDegree + N; attempt++)
+        public static bool GenerateSolutionFirst(int targetN, int seed, GenerationOptions opts, out LevelData level, out GenerationStats stats)
+        {
+            level = null;
+            stats = default;
+
+            // Safety clamp: this generator is coupled to current solver bitmask limits.
+            targetN = Mathf.Max(3, targetN);
+            targetN = Mathf.Min(targetN, LevelSolver.MaxNodesSupported);
+
+            int maxAttemptsPerNode = opts.MaxAttemptsPerNode > 0 ? opts.MaxAttemptsPerNode : DefaultMaxAttemptsPerNode;
+            int maxTotalAttempts = opts.MaxTotalAttempts > 0 ? opts.MaxTotalAttempts : Mathf.Max(DefaultMaxTotalAttempts, targetN * maxAttemptsPerNode);
+            int seedRetries = opts.SeedRetryCount > 0 ? opts.SeedRetryCount : DefaultSeedRetryCount;
+            bool hardMode = opts.RequireNormalHardVariety;
+            float decoyPerNode = opts.MaxDecoysPerNode > 0f
+                ? opts.MaxDecoysPerNode
+                : (hardMode ? DefaultMaxDecoyPerNodeHard : DefaultMaxDecoyPerNodeMedium);
+
+#if UNITY_EDITOR
+            int timeBudgetMs = opts.TimeBudgetMs > 0 ? opts.TimeBudgetMs : DefaultEditorTimeBudgetMs;
+            bool debugLog = opts.EnableEditorDebugLog;
+#else
+            int timeBudgetMs = opts.TimeBudgetMs > 0 ? opts.TimeBudgetMs : DefaultRuntimeTimeBudgetMs;
+            const bool debugLog = false;
+#endif
+
+            int totalAttempts = 0;
+            var globalWatch = Stopwatch.StartNew();
+
+            for (int retry = 0; retry < seedRetries; retry++)
             {
-                int i = rng.Next(0, N);
-                int j = rng.Next(0, N);
-                if (Math.Abs(i - j) < 3) continue;
-                int a = Math.Min(i, j), b = Math.Max(i, j);
-                if (edgeSet.Contains((a, b))) continue;
-                int newDegA = degree[a] + 1;
-                int newDegB = degree[b] + 1;
-                if (newDegA > 4 || newDegB > 4) continue;
-                int hubCount = 0;
-                for (int k = 0; k < N; k++)
-                    if (degree[k] >= 4) hubCount++;
-                if ((newDegA == 4 || newDegB == 4) && hubCount >= maxHubs) continue;
-                edgeSet.Add((a, b));
-                degree[a]++; degree[b]++;
-                currentTotal += 2;
-            }
+                if (globalWatch.ElapsedMilliseconds > timeBudgetMs)
+                    break;
 
-            var edgeList = new List<(int a, int b)>(edgeSet);
-            var backboneSet = new HashSet<(int a, int b)>();
-            for (int i = 0; i < N - 1; i++)
-                backboneSet.Add((backbone[i], backbone[i + 1]));
-
-            // Switch positions (not 0, not N-1 for clarity)
-            var switchIndices = new HashSet<int>();
-            while (switchIndices.Count < switchCount)
-            {
-                int idx = rng.Next(1, N);
-                switchIndices.Add(idx);
-            }
-
-            // Stage 2: Layout
-            var layouts = LayoutTemplates.GetLayoutsForNodeCountV2(N);
-            if (layouts == null || layouts.Count == 0)
-                layouts = new List<LayoutTemplate> { new LayoutTemplate { name = "Ring", nodeCount = N, slots = RingFallback(N) } };
-
-            Vector2[] positions = null;
-            for (int tryLayout = 0; tryLayout < LayoutRetryCount; tryLayout++)
-            {
-                var layout = layouts[rng.Next(layouts.Count)];
-                if (layout.slots == null || layout.slots.Length < N) continue;
-                positions = new Vector2[N];
-                var perm = new int[N];
-                for (int i = 0; i < N; i++) perm[i] = i;
-                Shuffle(perm, rng);
-                for (int i = 0; i < N; i++)
-                    positions[i] = layout.slots[perm[i]];
-
-                float avgLen = 1.5f;
-                if (edgeList.Count > 0)
+                int useSeed = seed + retry * 1009;
+                var rng = new Random(useSeed);
+                var solutionPath = new List<int> { 0, 1, 2 };
+                var solutionEdgeSet = new HashSet<(int a, int b)>
                 {
-                    float sum = 0;
-                    foreach (var (aa, bb) in edgeList)
-                        sum += Vector2.Distance(positions[aa], positions[bb]);
-                    avgLen = sum / edgeList.Count;
-                }
-                float jitter = Mathf.Max(0.05f, avgLen * JitterFractionOfAvgEdge);
-                for (int i = 0; i < N; i++)
+                    NormalizeEdge(0, 1),
+                    NormalizeEdge(1, 2)
+                };
+                // edgeSet contains both solution edges and optional decoy edges.
+                var edgeSet = new HashSet<(int a, int b)>(solutionEdgeSet);
+                var degrees = new Dictionary<int, int> { [0] = 1, [1] = 2, [2] = 1 };
+
+                bool expanded = true;
+                for (int nextNode = 3; nextNode < targetN; nextNode++)
                 {
-                    positions[i].x += (float)(rng.NextDouble() * 2 - 1) * jitter;
-                    positions[i].y += (float)(rng.NextDouble() * 2 - 1) * jitter;
-                }
-
-                var edgesForEval = new List<EdgeData>();
-                int eid = 0;
-                foreach (var (aa, bb) in edgeList)
-                    edgesForEval.Add(new EdgeData { id = eid++, a = aa, b = bb });
-                if (AestheticEvaluator.MinNodeDistance(positions, N) < 0.4f) continue;
-                if (!AestheticEvaluator.Accept(edgesForEval, positions, N, 2, 0.22f, 0.4f))
-                    continue;
-                break;
-            }
-
-            if (positions == null)
-            {
-                positions = new Vector2[N];
-                for (int i = 0; i < N; i++)
-                {
-                    float angle = (2f * Mathf.PI * i / N) - Mathf.PI / 2f;
-                    positions[i] = new Vector2(3.5f * Mathf.Cos(angle), 3.5f * Mathf.Sin(angle));
-                }
-            }
-
-            // Build EdgeData with gates and diodes
-            int gateGroupCount = p.Difficulty == DifficultyTier.Easy ? 0 : p.Difficulty == DifficultyTier.Medium ? rng.Next(1, 3) : rng.Next(2, 4);
-            var nonBackbone = new List<(int a, int b)>();
-            foreach (var e in edgeList)
-                if (!backboneSet.Contains((e.a, e.b)) && !backboneSet.Contains((e.b, e.a)))
-                    nonBackbone.Add(e);
-
-            var gatedEdges = new List<(int a, int b)>();
-            bool[] initialOpen = Array.Empty<bool>();
-            if (gateGroupCount > 0 && nonBackbone.Count > 0)
-            {
-                int gateCount = Mathf.Min(nonBackbone.Count, rng.Next(2, 6));
-                for (int k = 0; k < GateTradeoffRetries; k++)
-                {
-                    gatedEdges = PickRandomSubset(nonBackbone, gateCount, rng);
-                    initialOpen = new bool[gatedEdges.Count];
-                    for (int i = 0; i < gatedEdges.Count; i++)
-                        initialOpen[i] = rng.NextDouble() < 0.5;
-                    if (gateCount == 0) break;
-                    bool hasOpen = false, hasClosed = false;
-                    for (int i = 0; i < gatedEdges.Count; i++)
+                    bool inserted = false;
+                    int localAttempts = 0;
+                    while (!inserted && localAttempts < maxAttemptsPerNode && totalAttempts < maxTotalAttempts && globalWatch.ElapsedMilliseconds <= timeBudgetMs)
                     {
-                        if (initialOpen[i]) hasOpen = true; else hasClosed = true;
+                        localAttempts++;
+                        totalAttempts++;
+                        int insertAfter = rng.Next(0, solutionPath.Count - 1);
+                        int u = solutionPath[insertAfter];
+                        int v = solutionPath[insertAfter + 1];
+
+                        if (GetDegree(degrees, u) >= MaxNodeDegree || GetDegree(degrees, v) >= MaxNodeDegree)
+                            continue;
+
+                        // Core expansion rule:
+                        // pick an existing adjacent pair u-v on solutionPath and replace it with u-nextNode-v.
+                        InsertNodeIntoSolutionPath(solutionPath, insertAfter, nextNode);
+                        var ux = NormalizeEdge(u, nextNode);
+                        var xv = NormalizeEdge(nextNode, v);
+                        edgeSet.Add(ux);
+                        edgeSet.Add(xv);
+                        solutionEdgeSet.Add(ux);
+                        solutionEdgeSet.Add(xv);
+                        // keep (u,v) as optional decoy by default for richer choices.
+                        edgeSet.Add(NormalizeEdge(u, v));
+                        IncreaseDegree(degrees, u);
+                        IncreaseDegree(degrees, v);
+                        degrees[nextNode] = 2;
+                        inserted = true;
+
+                        if (debugLog)
+                        {
+                            UnityEngine.Debug.Log(
+                                $"[SolutionFirst] seed={useSeed} N={nextNode + 1} insert=({u},{v}) via={nextNode} totalAttempts={totalAttempts}");
+                        }
                     }
-                    if (hasOpen && hasClosed) break;
-                }
-            }
 
-            int diodeCount = p.Difficulty == DifficultyTier.Easy ? rng.Next(0, 2) : p.Difficulty == DifficultyTier.Medium ? rng.Next(1, 4) : rng.Next(2, 5);
-            diodeCount = Mathf.Min(diodeCount, edgeList.Count);
-            var diodeEdges = PickRandomSubset(edgeList, diodeCount, rng);
-            var diodeDir = new Dictionary<(int a, int b), bool>();
-            foreach (var (a, b) in diodeEdges)
-            {
-                bool atob = backboneSet.Contains((a, b)) ? (b == a + 1) : rng.NextDouble() < 0.5;
-                diodeDir[(a, b)] = atob;
-            }
-
-            int edgeId = 0;
-            var outEdges = new List<EdgeData>();
-            foreach (var (a, b) in edgeList)
-            {
-                var ed = new EdgeData { id = edgeId++, a = a, b = b };
-                if (diodeDir.TryGetValue((a, b), out bool atob))
-                    ed.diode = atob ? DiodeMode.AtoB : DiodeMode.BtoA;
-                for (int g = 0; g < gatedEdges.Count; g++)
-                {
-                    if ((gatedEdges[g].a == a && gatedEdges[g].b == b) || (gatedEdges[g].a == b && gatedEdges[g].b == a))
+                    if (!inserted)
                     {
-                        ed.gateGroupId = 1;
-                        ed.initialGateOpen = initialOpen[g];
+                        expanded = false;
                         break;
                     }
                 }
-                outEdges.Add(ed);
+
+                if (!expanded)
+                    continue;
+
+                var positions = TryPlaceNodes(targetN, edgeSet, useSeed);
+                if (positions == null || positions.Length != targetN)
+                    continue;
+
+                int straightRun = ComputeLongestStraightRunOnSolution(solutionPath, positions);
+                float perimeterBias = ComputePerimeterBias(solutionPath, positions);
+                var hullSet = BuildConvexHullSet(positions);
+
+                int decoyBudget = Mathf.Clamp(Mathf.FloorToInt(targetN * decoyPerNode), 0, targetN * 3);
+                int decoyAdded = 0;
+                var candidates = BuildDecoyCandidates(solutionPath, edgeSet, hullSet, rng);
+                for (int i = 0; i < candidates.Count && decoyAdded < decoyBudget && totalAttempts < maxTotalAttempts && globalWatch.ElapsedMilliseconds <= timeBudgetMs; i++)
+                {
+                    totalAttempts++;
+                    var c = candidates[i];
+                    if (GetDegree(degrees, c.a) >= MaxNodeDegree || GetDegree(degrees, c.b) >= MaxNodeDegree)
+                        continue;
+                    if (!TryAddDecoyAndValidate(
+                        targetN,
+                        edgeSet,
+                        degrees,
+                        c.a,
+                        c.b,
+                        useSeed + i * 13,
+                        hardMode,
+                        out float successRate))
+                    {
+                        continue;
+                    }
+
+                    // Only count decoy when rollback filters allow it.
+                    decoyAdded++;
+                    if (debugLog)
+                    {
+                        UnityEngine.Debug.Log(
+                            $"[SolutionFirst] seed={useSeed} decoy=({c.a},{c.b}) added={decoyAdded}/{decoyBudget} mc={successRate:F3}");
+                    }
+                }
+
+                level = BuildLevel(targetN, positions, edgeSet, solutionPath, solutionEdgeSet);
+                var finalMc = MonteCarloEvaluator.EvaluateDetailed(level, DefaultTrialsK, useSeed + 333);
+                stats = new GenerationStats
+                {
+                    finalN = targetN,
+                    attempts = totalAttempts,
+                    timeMs = globalWatch.ElapsedMilliseconds,
+                    solutionStraightRun = straightRun,
+                    perimeterBias = perimeterBias,
+                    decoyEdgeCount = decoyAdded,
+                    mcSuccessRate = finalMc.successRate
+                };
+
+                if (debugLog)
+                {
+                    UnityEngine.Debug.Log(
+                        $"[SolutionFirst] done seed={useSeed} N={targetN} attempts={stats.attempts} decoys={decoyAdded} straightRun={straightRun} perimeterBias={perimeterBias:F2} timeMs={stats.timeMs}");
+                }
+                return true;
             }
 
-            var nodes = new List<NodeData>();
-            for (int i = 0; i < N; i++)
+            stats.finalN = targetN;
+            stats.attempts = totalAttempts;
+            stats.timeMs = globalWatch.ElapsedMilliseconds;
+            return false;
+        }
+
+        private static LevelData BuildLevel(
+            int n,
+            IReadOnlyList<Vector2> positions,
+            HashSet<(int a, int b)> edgeSet,
+            IReadOnlyList<int> solutionPath,
+            HashSet<(int a, int b)> solutionEdgeSet)
+        {
+            var level = ScriptableObject.CreateInstance<LevelData>();
+            level.levelId = 0;
+            level.nodes = new NodeData[n];
+            for (int i = 0; i < n; i++)
             {
-                nodes.Add(new NodeData
+                level.nodes[i] = new NodeData
                 {
                     id = i,
                     pos = positions[i],
-                    nodeType = switchIndices.Contains(i) ? NodeType.Switch : NodeType.Bulb,
-                    switchGroupId = switchIndices.Contains(i) ? 1 : 0
-                });
+                    nodeType = NodeType.Bulb,
+                    switchGroupId = 0
+                };
             }
 
-            var level = ScriptableObject.CreateInstance<LevelData>();
-            level.levelId = 0;
-            level.nodes = nodes.ToArray();
-            level.edges = outEdges.ToArray();
+            var edges = new List<EdgeData>(edgeSet.Count);
+            int edgeId = 0;
+            foreach (var (a, b) in edgeSet)
+            {
+                edges.Add(new EdgeData
+                {
+                    id = edgeId++,
+                    a = a,
+                    b = b,
+                    diode = DiodeMode.None,
+                    gateGroupId = -1,
+                    initialGateOpen = true
+                });
+            }
+            level.edges = edges.ToArray();
+
+            level.solutionPath = new List<int>(solutionPath);
+            level.solutionEdgesUndirected = new List<Vector2Int>(solutionEdgeSet.Count);
+            foreach (var (a, b) in solutionEdgeSet)
+                level.solutionEdgesUndirected.Add(new Vector2Int(a, b));
+
             return level;
+        }
+
+        private static void InsertNodeIntoSolutionPath(List<int> path, int insertAfter, int newNodeId)
+        {
+            path.Insert(insertAfter + 1, newNodeId);
+        }
+
+        private static List<(int a, int b)> BuildDecoyCandidates(
+            IReadOnlyList<int> solutionPath,
+            HashSet<(int a, int b)> edgeSet,
+            HashSet<int> hullSet,
+            Random rng)
+        {
+            var pathIndex = new Dictionary<int, int>();
+            for (int i = 0; i < solutionPath.Count; i++)
+                pathIndex[solutionPath[i]] = i;
+
+            var list = new List<(int a, int b, float score)>();
+            for (int i = 0; i < solutionPath.Count; i++)
+            {
+                int a = solutionPath[i];
+                for (int j = i + 1; j < solutionPath.Count; j++)
+                {
+                    int b = solutionPath[j];
+                    var e = NormalizeEdge(a, b);
+                    if (edgeSet.Contains(e))
+                        continue;
+                    int d = Math.Abs(pathIndex[a] - pathIndex[b]);
+                    if (d < 2 || d > 5)
+                        continue;
+
+                    float score = 1f;
+                    if (d == 2) score += 0.30f;
+                    if (d == 3) score += 0.15f;
+                    if (hullSet.Contains(a) && hullSet.Contains(b) && d <= 2)
+                        score -= 0.45f;
+                    score += (float)rng.NextDouble() * 0.2f;
+                    list.Add((a, b, score));
+                }
+            }
+
+            list.Sort((x, y) => y.score.CompareTo(x.score));
+            var result = new List<(int a, int b)>(list.Count);
+            for (int i = 0; i < list.Count; i++)
+                result.Add((list[i].a, list[i].b));
+            return result;
+        }
+
+        private static bool TryAddDecoyAndValidate(
+            int nodeCount,
+            HashSet<(int a, int b)> edgeSet,
+            Dictionary<int, int> degrees,
+            int a,
+            int b,
+            int seed,
+            bool hardMode,
+            out float successRate)
+        {
+            successRate = 0f;
+            var e = NormalizeEdge(a, b);
+            if (edgeSet.Contains(e))
+                return false;
+
+            edgeSet.Add(e);
+            IncreaseDegree(degrees, a);
+            IncreaseDegree(degrees, b);
+
+            LevelData probe = BuildProbeLevel(nodeCount, edgeSet);
+            var mc = MonteCarloEvaluator.EvaluateDetailed(probe, DefaultTrialsK, seed);
+            UnityEngine.Object.DestroyImmediate(probe);
+
+            // Rollback policy:
+            // 1) reject if forced-move ratio spikes (too corridor-like),
+            // 2) in hard mode reject if random-policy success is too high (too readable/easy).
+            bool rollback = mc.forcedRatio >= ForcedRatioRollbackThreshold;
+            if (!rollback && hardMode && mc.successRate > HardSuccessRateRollbackThreshold)
+                rollback = true;
+
+            if (rollback)
+            {
+                edgeSet.Remove(e);
+                DecreaseDegree(degrees, a);
+                DecreaseDegree(degrees, b);
+                return false;
+            }
+
+            successRate = mc.successRate;
+            return true;
+        }
+
+        private static LevelData BuildProbeLevel(int n, HashSet<(int a, int b)> edgeSet)
+        {
+            var level = ScriptableObject.CreateInstance<LevelData>();
+            level.nodes = new NodeData[n];
+            for (int i = 0; i < n; i++)
+                level.nodes[i] = new NodeData { id = i, pos = Vector2.zero, nodeType = NodeType.Bulb };
+
+            var edges = new List<EdgeData>(edgeSet.Count);
+            int edgeId = 0;
+            foreach (var (a, b) in edgeSet)
+                edges.Add(new EdgeData { id = edgeId++, a = a, b = b });
+            level.edges = edges.ToArray();
+            return level;
+        }
+
+        private static Vector2[] TryPlaceNodes(int n, HashSet<(int a, int b)> edgeSet, int seed)
+        {
+            var rng = new Random(seed ^ 0x575757);
+            var edgesForEval = new List<EdgeData>(edgeSet.Count);
+            int edgeId = 0;
+            foreach (var (a, b) in edgeSet)
+                edgesForEval.Add(new EdgeData { id = edgeId++, a = a, b = b });
+
+            var layouts = LayoutTemplates.GetLayoutsForNodeCountV2(n);
+            if (layouts == null || layouts.Count == 0)
+                return RingFallback(n);
+
+            for (int t = 0; t < MaxLayoutRetries; t++)
+            {
+                var layout = layouts[rng.Next(layouts.Count)];
+                if (layout.slots == null || layout.slots.Length < n)
+                {
+                    LayoutTemplateTelemetry.RecordTry(layout.name, false, "slots_short");
+                    continue;
+                }
+
+                var pos = new Vector2[n];
+                var perm = new int[n];
+                for (int i = 0; i < n; i++) perm[i] = i;
+                Shuffle(perm, rng);
+                for (int i = 0; i < n; i++) pos[i] = layout.slots[perm[i]];
+
+                float avgLen = 1.5f;
+                if (edgesForEval.Count > 0)
+                    avgLen = Mathf.Max(0.1f, AestheticEvaluator.AverageEdgeLength(edgesForEval, pos));
+                float jitter = avgLen * JitterFractionOfAvgEdge;
+                for (int i = 0; i < n; i++)
+                {
+                    pos[i].x += (float)(rng.NextDouble() * 2 - 1) * jitter;
+                    pos[i].y += (float)(rng.NextDouble() * 2 - 1) * jitter;
+                }
+
+                float minDist = AestheticEvaluator.MinNodeDistance(pos, n);
+                if (minDist < 0.35f)
+                {
+                    LayoutTemplateTelemetry.RecordTry(layout.name, false, "min_node_distance");
+                    continue;
+                }
+                // Accept uses crossings/spacing/edge-length consistency heuristics.
+                if (!AestheticEvaluator.Accept(edgesForEval, pos, n, 2, 0.22f, 0.45f))
+                {
+                    LayoutTemplateTelemetry.RecordTry(layout.name, false, "aesthetic_reject");
+                    continue;
+                }
+                LayoutTemplateTelemetry.RecordTry(layout.name, true);
+                LayoutTemplateTelemetry.RecordChosen(layout.name);
+                LayoutTemplateTelemetry.DumpPeriodicIfNeeded("BackboneFirstGenerator");
+                return pos;
+            }
+
+            LayoutTemplateTelemetry.RecordFallback("BackboneFirstGenerator.TryPlaceNodes", n);
+            LayoutTemplateTelemetry.DumpPeriodicIfNeeded("BackboneFirstGenerator");
+            // Last-resort placement to keep generation progressing.
+            return RingFallback(n);
         }
 
         private static Vector2[] RingFallback(int n)
         {
+            var pos = new Vector2[n];
             const float r = 3.5f;
-            var s = new Vector2[n];
             for (int i = 0; i < n; i++)
             {
                 float angle = (2f * Mathf.PI * i / n) - Mathf.PI / 2f;
-                s[i] = new Vector2(r * Mathf.Cos(angle), r * Mathf.Sin(angle));
+                pos[i] = new Vector2(r * Mathf.Cos(angle), r * Mathf.Sin(angle));
             }
-            return s;
+            return pos;
         }
 
-        private static void Shuffle(int[] a, Random rng)
+        private static int ComputeLongestStraightRunOnSolution(IReadOnlyList<int> solutionPath, IReadOnlyList<Vector2> positions, float maxTurnDeg = 16f)
         {
-            for (int i = a.Length - 1; i > 0; i--)
+            if (solutionPath == null || positions == null || solutionPath.Count < 3)
+                return 0;
+            int best = 0;
+            int run = 0;
+            for (int i = 1; i < solutionPath.Count - 1; i++)
+            {
+                int prev = solutionPath[i - 1];
+                int cur = solutionPath[i];
+                int next = solutionPath[i + 1];
+                Vector2 d1 = (positions[cur] - positions[prev]).normalized;
+                Vector2 d2 = (positions[next] - positions[cur]).normalized;
+                float turn = Vector2.Angle(d1, d2);
+                if (turn <= maxTurnDeg)
+                {
+                    run++;
+                    if (run > best)
+                        best = run;
+                }
+                else
+                {
+                    run = 0;
+                }
+            }
+            // run counts interior corners, so convert to approximate node-run length.
+            return best + 2;
+        }
+
+        private static float ComputePerimeterBias(IReadOnlyList<int> solutionPath, IReadOnlyList<Vector2> positions)
+        {
+            if (solutionPath == null || positions == null || solutionPath.Count == 0)
+                return 0f;
+            var hull = BuildConvexHullSet(positions);
+            if (hull.Count == 0)
+                return 0f;
+            int onHull = 0;
+            for (int i = 0; i < solutionPath.Count; i++)
+                if (hull.Contains(solutionPath[i]))
+                    onHull++;
+            return onHull / (float)solutionPath.Count;
+        }
+
+        private static HashSet<int> BuildConvexHullSet(IReadOnlyList<Vector2> points)
+        {
+            var hull = new HashSet<int>();
+            if (points == null || points.Count < 3)
+                return hull;
+
+            var ids = new List<int>(points.Count);
+            for (int i = 0; i < points.Count; i++) ids.Add(i);
+            ids.Sort((a, b) =>
+            {
+                int cx = points[a].x.CompareTo(points[b].x);
+                return cx != 0 ? cx : points[a].y.CompareTo(points[b].y);
+            });
+
+            var lower = new List<int>();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                int id = ids[i];
+                while (lower.Count >= 2 && Cross(points[lower[lower.Count - 2]], points[lower[lower.Count - 1]], points[id]) <= 0f)
+                    lower.RemoveAt(lower.Count - 1);
+                lower.Add(id);
+            }
+
+            var upper = new List<int>();
+            for (int i = ids.Count - 1; i >= 0; i--)
+            {
+                int id = ids[i];
+                while (upper.Count >= 2 && Cross(points[upper[upper.Count - 2]], points[upper[upper.Count - 1]], points[id]) <= 0f)
+                    upper.RemoveAt(upper.Count - 1);
+                upper.Add(id);
+            }
+
+            for (int i = 0; i < lower.Count; i++) hull.Add(lower[i]);
+            for (int i = 0; i < upper.Count; i++) hull.Add(upper[i]);
+            return hull;
+        }
+
+        private static float Cross(Vector2 a, Vector2 b, Vector2 c)
+        {
+            Vector2 ab = b - a;
+            Vector2 ac = c - a;
+            return ab.x * ac.y - ab.y * ac.x;
+        }
+
+        private static (int a, int b) NormalizeEdge(int a, int b)
+        {
+            return a < b ? (a, b) : (b, a);
+        }
+
+        private static int GetDegree(Dictionary<int, int> degrees, int node)
+        {
+            return degrees.TryGetValue(node, out int d) ? d : 0;
+        }
+
+        private static void IncreaseDegree(Dictionary<int, int> degrees, int node)
+        {
+            if (!degrees.ContainsKey(node))
+                degrees[node] = 0;
+            degrees[node]++;
+        }
+
+        private static void DecreaseDegree(Dictionary<int, int> degrees, int node)
+        {
+            if (!degrees.ContainsKey(node))
+                return;
+            degrees[node] = Mathf.Max(0, degrees[node] - 1);
+        }
+
+        private static void Shuffle(int[] array, Random rng)
+        {
+            for (int i = array.Length - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
-                (a[i], a[j]) = (a[j], a[i]);
+                (array[i], array[j]) = (array[j], array[i]);
             }
-        }
-
-        private static List<(int a, int b)> PickRandomSubset(List<(int a, int b)> source, int count, Random rng)
-        {
-            if (count >= source.Count) return new List<(int a, int b)>(source);
-            var indices = new List<int>();
-            for (int i = 0; i < source.Count; i++) indices.Add(i);
-            for (int i = 0; i < count; i++)
-            {
-                int j = rng.Next(i, indices.Count);
-                (indices[i], indices[j]) = (indices[j], indices[i]);
-            }
-            var result = new List<(int a, int b)>();
-            for (int i = 0; i < count; i++)
-                result.Add(source[indices[i]]);
-            return result;
         }
     }
 }

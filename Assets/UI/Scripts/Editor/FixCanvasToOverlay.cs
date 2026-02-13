@@ -8,8 +8,9 @@ using UnityEngine.SceneManagement;
 namespace CircuitOneStroke.Editor
 {
     /// <summary>
-    /// 선택한 Canvas를 Screen Space - Overlay로 바꿉니다.
-    /// 씬 뷰에서 UI가 3D 오브젝트처럼 보이거나 Game 뷰에 안 맞을 때 사용하세요.
+    /// Canvas render/scaler fix helpers.
+    /// Safe mode updates render mode + scaler only.
+    /// Legacy mode also forces Canvas RectTransform to 1080x1920.
     /// </summary>
     public static class FixCanvasToOverlay
     {
@@ -19,12 +20,26 @@ namespace CircuitOneStroke.Editor
             var canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
             if (canvas == null)
             {
-                Debug.LogWarning("씬에 Canvas가 없습니다.");
+                Debug.LogWarning("No Canvas found in scene.");
                 return;
             }
-            ApplyPortraitToCanvas(canvas);
+            ApplyPortraitToCanvas(canvas, forceCanvasRect: false);
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            Debug.Log("캔버스 세로(1080x1920) 적용됨: " + canvas.gameObject.name);
+            Debug.Log("Canvas portrait scaler applied safely (RectTransform unchanged): " + canvas.gameObject.name);
+        }
+
+        [MenuItem("Circuit One-Stroke/UI/Fix Canvas to Portrait (1080x1920, Force Rect Legacy)", false)]
+        public static void FixCanvasToPortraitInSceneLegacy()
+        {
+            var canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogWarning("No Canvas found in scene.");
+                return;
+            }
+            ApplyPortraitToCanvas(canvas, forceCanvasRect: true);
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            Debug.Log("Canvas portrait scaler + forced RectTransform applied (legacy): " + canvas.gameObject.name);
         }
 
         [MenuItem("Circuit One-Stroke/UI/Fix Canvas to Screen Space Overlay", true)]
@@ -49,12 +64,12 @@ namespace CircuitOneStroke.Editor
                 Debug.LogWarning("Select a Canvas or an object under a Canvas.");
                 return;
             }
-            ApplyPortraitToCanvas(canvas);
+            ApplyPortraitToCanvas(canvas, forceCanvasRect: false);
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            Debug.Log("Canvas: Overlay + 세로 1080x1920 적용됨.");
+            Debug.Log("Canvas: Overlay + safe portrait scaler applied.");
         }
 
-        private static void ApplyPortraitToCanvas(Canvas canvas)
+        private static void ApplyPortraitToCanvas(Canvas canvas, bool forceCanvasRect)
         {
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
@@ -63,10 +78,10 @@ namespace CircuitOneStroke.Editor
                 scaler = canvas.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 1f;
+            scaler.matchWidthOrHeight = 0.5f;
 
             var rect = canvas.GetComponent<RectTransform>();
-            if (rect != null)
+            if (forceCanvasRect && rect != null)
             {
                 rect.anchorMin = new Vector2(0.5f, 0.5f);
                 rect.anchorMax = new Vector2(0.5f, 0.5f);
