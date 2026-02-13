@@ -36,8 +36,9 @@ namespace CircuitOneStroke.View
         private float _rejectEndTime;
         private bool _hintModeActive;
         private bool _hintCandidate;
-        private bool _curveForReadability;
-        private readonly Vector3[] _curvePoints = new Vector3[9];
+        private bool _dimNonCandidateInHint = true;
+        private bool _highlightCandidateInHint = true;
+        private Vector3[] _routePoints;
         private Transform _diodeMarker;
         private GameObject _gateClosedMarker;
 
@@ -94,7 +95,7 @@ namespace CircuitOneStroke.View
 
         private void OnSettingsChanged(GameSettingsData _) => UpdateVisual();
 
-        public void Setup(int edgeId, Vector2 posA, Vector2 posB, DiodeMode diode, int gateGroupId, bool initialGateOpen, LevelRuntime runtime, bool curveForReadability = false)
+        public void Setup(int edgeId, Vector2 posA, Vector2 posB, DiodeMode diode, int gateGroupId, bool initialGateOpen, LevelRuntime runtime, Vector2[] routePoints = null)
         {
             EdgeId = edgeId;
             _posA = posA;
@@ -102,7 +103,7 @@ namespace CircuitOneStroke.View
             _diode = diode;
             _gateGroupId = gateGroupId;
             _runtime = runtime;
-            _curveForReadability = curveForReadability;
+            SetRoute(routePoints);
             _lastGateOpen = gateGroupId < 0 || initialGateOpen;
             _showReject = false;
 
@@ -123,6 +124,13 @@ namespace CircuitOneStroke.View
         {
             _hintCandidate = isCandidate;
             _hintModeActive = hintModeActive;
+            UpdateVisual();
+        }
+
+        public void SetHintStyle(bool dimNonCandidate, bool highlightCandidate)
+        {
+            _dimNonCandidateInHint = dimNonCandidate;
+            _highlightCandidateInHint = highlightCandidate;
             UpdateVisual();
         }
 
@@ -213,34 +221,34 @@ namespace CircuitOneStroke.View
             }
 
             if (_gateSegmentsRoot != null) _gateSegmentsRoot.SetActive(false);
-
-            if (_curveForReadability && !_showReject)
-                DrawCurve(_lr, _posA, _posB);
-            else
-            {
-                _lr.positionCount = 2;
-                _lr.SetPosition(0, new Vector3(_posA.x, _posA.y, 0f));
-                _lr.SetPosition(1, new Vector3(_posB.x, _posB.y, 0f));
-            }
+            ApplyPolyline(_lr, _routePoints);
         }
 
-        private void DrawCurve(LineRenderer lr, Vector2 a, Vector2 b)
+        private void SetRoute(Vector2[] routePoints)
         {
-            Vector2 mid = Vector2.Lerp(a, b, 0.5f);
-            Vector2 dir = (b - a).normalized;
-            Vector2 perp = new Vector2(-dir.y, dir.x);
-            float sign = (EdgeId % 2 == 0) ? 1f : -1f;
-            float offset = Mathf.Clamp(Vector2.Distance(a, b) * 0.13f, 0.08f, 0.34f);
-            Vector2 control = mid + perp * offset * sign;
-
-            lr.positionCount = _curvePoints.Length;
-            for (int i = 0; i < _curvePoints.Length; i++)
+            if (routePoints == null || routePoints.Length < 2)
             {
-                float t = i / (float)(_curvePoints.Length - 1);
-                Vector2 p = (1f - t) * (1f - t) * a + 2f * (1f - t) * t * control + t * t * b;
-                _curvePoints[i] = new Vector3(p.x, p.y, 0f);
-                lr.SetPosition(i, _curvePoints[i]);
+                _routePoints = new[]
+                {
+                    new Vector3(_posA.x, _posA.y, 0f),
+                    new Vector3(_posB.x, _posB.y, 0f)
+                };
+                return;
             }
+
+            _routePoints = new Vector3[routePoints.Length];
+            for (int i = 0; i < routePoints.Length; i++)
+                _routePoints[i] = new Vector3(routePoints[i].x, routePoints[i].y, 0f);
+        }
+
+        private static void ApplyPolyline(LineRenderer lr, Vector3[] points)
+        {
+            if (lr == null || points == null || points.Length < 2)
+                return;
+
+            lr.positionCount = points.Length;
+            for (int i = 0; i < points.Length; i++)
+                lr.SetPosition(i, points[i]);
         }
 
         private void EnsureGateSegments()
@@ -327,9 +335,7 @@ namespace CircuitOneStroke.View
             if (_showReject)
             {
                 UpdateLinePositions();
-                _lr.positionCount = 2;
-                _lr.SetPosition(0, new Vector3(_posA.x, _posA.y, 0f));
-                _lr.SetPosition(1, new Vector3(_posB.x, _posB.y, 0f));
+                ApplyPolyline(_lr, _routePoints);
                 _lr.startColor = _lr.endColor = rejectCol;
                 _lr.startWidth = _lr.endWidth = 0.09f;
                 if (_gateClosedMarker != null) _gateClosedMarker.SetActive(false);
@@ -358,10 +364,10 @@ namespace CircuitOneStroke.View
             {
                 if (_hintCandidate)
                 {
-                    if (!energized)
+                    if (!energized && _highlightCandidateInHint)
                         lineCol = Color.Lerp(lineCol, wireHighlightColor, 0.52f);
                 }
-                else if (!energized)
+                else if (!energized && _dimNonCandidateInHint)
                 {
                     lineCol = new Color(lineCol.r * 0.60f, lineCol.g * 0.60f, lineCol.b * 0.60f, 0.52f);
                 }
@@ -371,7 +377,13 @@ namespace CircuitOneStroke.View
 
             float width;
             if (energized) width = 0.105f;
-            else if (_hintModeActive) width = _hintCandidate ? 0.085f : 0.064f;
+            else if (_hintModeActive)
+            {
+                if (_hintCandidate)
+                    width = _highlightCandidateInHint ? 0.085f : 0.075f;
+                else
+                    width = _dimNonCandidateInHint ? 0.064f : 0.075f;
+            }
             else width = 0.075f;
 
             _lr.startWidth = _lr.endWidth = width;

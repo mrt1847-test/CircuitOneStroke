@@ -6,18 +6,18 @@ using CircuitOneStroke.Services;
 namespace CircuitOneStroke.UI
 {
     /// <summary>
-    /// "Watch Ad to Refill Hearts" 흐름을 한 곳에서 처리합니다.
-    /// GameHUD와 OutOfHeartsScreen에서 중복되던 로직을 공통화합니다.
+    /// "Watch Ad to Refill Hearts" ?�름????곳에??처리?�니??
+    /// GameHUD?� OutOfHeartsScreen?�서 중복?�던 로직??공통?�합?�다.
     /// </summary>
     public static class HeartsRefillAdFlow
     {
         /// <summary>
-        /// 리워드 광고로 하트 리필 시도.
+        /// 리워??광고�??�트 리필 ?�도.
         /// </summary>
-        /// <param name="levelIndex">광고 의사결정용 레벨 인덱스 (0-based).</param>
-        /// <param name="adServiceComponent">씬에 배치된 광고 컴포넌트 (선택).</param>
-        /// <param name="onSuccess">리필 성공 또는 DevBypass 시 (게임 재개/화면 전환 호출).</param>
-        /// <param name="onClosedOrFailed">광고 표시 불가/실패/닫기 시 (폴백 화면 전환 등).</param>
+        /// <param name="levelIndex">광고 ?�사결정???�벨 ?�덱??(0-based).</param>
+        /// <param name="adServiceComponent">?�에 배치??광고 컴포?�트 (?�택).</param>
+        /// <param name="onSuccess">리필 ?�공 ?�는 DevBypass ??(게임 ?�개/?�면 ?�환 ?�출).</param>
+        /// <param name="onClosedOrFailed">광고 ?�시 불�?/?�패/?�기 ??(?�백 ?�면 ?�환 ??.</param>
         public static void Run(
             int levelIndex,
             MonoBehaviour adServiceComponent,
@@ -35,11 +35,11 @@ namespace CircuitOneStroke.UI
                 if (GameSettings.DevBypassRewardedOnUnavailable)
                 {
                     HeartsManager.Instance.RefillFull();
-                    UIServices.GetFlow()?.ResumeLastIntent();
                     onSuccess?.Invoke();
+                    return;
                 }
                 else
-                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
+                    GameFeedback.RequestToast("광고�?불러?��? 못했?�니?? ?�시 ???�시 ?�도");
                 onClosedOrFailed?.Invoke();
                 return;
             }
@@ -50,35 +50,58 @@ namespace CircuitOneStroke.UI
                 if (GameSettings.DevBypassRewardedOnUnavailable)
                 {
                     HeartsManager.Instance.RefillFull();
-                    UIServices.GetFlow()?.ResumeLastIntent();
                     onSuccess?.Invoke();
+                    return;
                 }
                 else
-                    GameFeedback.RequestToast("광고를 불러오지 못했습니다. 잠시 후 다시 시도");
+                    GameFeedback.RequestToast("광고�?불러?��? 못했?�니?? ?�시 ???�시 ?�도");
                 onClosedOrFailed?.Invoke();
                 return;
+            }
+
+            bool rewarded = false;
+            bool finished = false;
+
+            void FinishSuccess()
+            {
+                if (finished) return;
+                finished = true;
+                onSuccess?.Invoke();
+            }
+
+            void FinishFail()
+            {
+                if (finished) return;
+                finished = true;
+                onClosedOrFailed?.Invoke();
             }
 
             service.ShowRewarded(
                 AdPlacement.Rewarded_HeartsRefill,
                 onRewarded: () =>
                 {
+                    rewarded = true;
                     HeartsManager.Instance?.RefillFull();
                     AdDecisionService.Instance?.RecordShown(AdPlacement.Rewarded_HeartsRefill);
-                    UIServices.GetFlow()?.ResumeLastIntent();
-                    onSuccess?.Invoke();
+                    FinishSuccess();
                 },
                 onClosed: () =>
                 {
-                    UIServices.GetFlow()?.ResumeLastIntent();
-                    onSuccess?.Invoke();
+                    if (finished) return;
+                    if (!rewarded)
+                    {
+                        // Some ad SDK wrappers only report close. Keep playability by granting on close fallback.
+                        HeartsManager.Instance?.RefillFull();
+                    }
+                    FinishSuccess();
                 },
                 onFailed: _ =>
                 {
-                    UIServices.GetFlow()?.ResumeLastIntent();
-                    onClosedOrFailed?.Invoke();
+                    GameFeedback.RequestToast("광고�?불러?��? 못했?�니?? ?�시 ???�시 ?�도??주세??");
+                    FinishFail();
                 }
             );
         }
     }
 }
+

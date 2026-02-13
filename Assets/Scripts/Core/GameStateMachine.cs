@@ -113,6 +113,10 @@ namespace CircuitOneStroke.Core
         {
             if (Runtime.LevelData == null) return;
             int id = Runtime.LevelData.levelId;
+            if (id <= 0)
+                id = LevelRecords.LastPlayedLevelId;
+            if (id <= 0)
+                return;
             LevelRecords.SetCleared(id);
             float elapsed = UnityEngine.Time.time - StrokeStartTime;
             LevelRecords.SetBestTime(id, elapsed);

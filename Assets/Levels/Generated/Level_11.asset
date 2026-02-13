@@ -15,71 +15,73 @@ MonoBehaviour:
   levelId: 11
   nodes:
   - id: 0
-    pos: {x: -1.2315512, y: 3.935229}
+    pos: {x: -3.8397112, y: -1.1218529}
     nodeType: 0
     switchGroupId: 0
   - id: 1
-    pos: {x: -1.360716, y: -3.8791065}
+    pos: {x: 1.0499051, y: 3.4970083}
     nodeType: 0
     switchGroupId: 0
   - id: 2
-    pos: {x: 3.1864178, y: -2.6728978}
-    nodeType: 0
+    pos: {x: 4.3096495, y: -1.1218529}
+    nodeType: 2
     switchGroupId: 0
   - id: 3
-    pos: {x: -4.2754564, y: 0.2711324}
+    pos: {x: 1.0499051, y: -4.2010937}
     nodeType: 0
     switchGroupId: 0
   - id: 4
-    pos: {x: 3.6943078, y: 2.1785183}
+    pos: {x: -2.209839, y: 3.4970083}
     nodeType: 0
     switchGroupId: 0
   edges:
   - id: 0
     a: 0
     b: 1
-    diode: 0
+    diode: 2
     gateGroupId: -1
     initialGateOpen: 1
   - id: 1
     a: 1
     b: 2
-    diode: 0
+    diode: 2
     gateGroupId: -1
     initialGateOpen: 1
   - id: 2
     a: 2
     b: 3
-    diode: 0
+    diode: 2
     gateGroupId: -1
     initialGateOpen: 1
   - id: 3
     a: 3
     b: 4
-    diode: 0
+    diode: 1
     gateGroupId: -1
     initialGateOpen: 1
   - id: 4
-    a: 2
-    b: 4
+    a: 0
+    b: 3
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
   - id: 5
-    a: 1
-    b: 3
+    a: 0
+    b: 2
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
   - id: 6
     a: 0
-    b: 3
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 7
-    a: 0
     b: 4
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
+  - id: 7
+    a: 1
+    b: 4
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  solutionPath: 
+  solutionEdgesUndirected: []

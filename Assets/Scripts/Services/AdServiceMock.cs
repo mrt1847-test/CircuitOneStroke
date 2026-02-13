@@ -22,11 +22,21 @@ namespace CircuitOneStroke.Services
 
         public void ShowInterstitial(AdPlacement placement, Action onClosed, Action<string> onFailed)
         {
+            if (!isActiveAndEnabled)
+            {
+                onFailed?.Invoke("ad_service_inactive");
+                return;
+            }
             StartCoroutine(SimulateInterstitial(onClosed));
         }
 
         public void ShowRewarded(AdPlacement placement, Action onRewarded, Action onClosed, Action<string> onFailed)
         {
+            if (!isActiveAndEnabled)
+            {
+                onFailed?.Invoke("ad_service_inactive");
+                return;
+            }
             StartCoroutine(SimulateRewarded(onRewarded, onClosed));
         }
 

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using CircuitOneStroke.Data;
 using CircuitOneStroke.View;
-using CircuitOneStroke.Generation;
 
 namespace CircuitOneStroke.Core
 {
@@ -20,6 +19,20 @@ namespace CircuitOneStroke.Core
         [SerializeField] private GameObject nodeViewPrefab;
         [SerializeField] private GameObject edgeViewPrefab;
         [SerializeField] private StrokeRenderer strokeRenderer;
+        [Header("Camera Framing")]
+        [SerializeField] private Camera gameplayCamera;
+        [SerializeField] private bool autoFramePuzzle = true;
+        [SerializeField] private float framePaddingWorld = 0.8f;
+        [SerializeField] private float frameSizeMultiplier = 1.12f;
+        [Header("Move Hint Visuals")]
+        [SerializeField] private bool emphasizeLegalEdgesWhileDrawing = true;
+        [SerializeField] private bool dimNonCandidateEdges = true;
+        [Header("Edge Routing")]
+        [SerializeField] private bool separateParallelOverlaps = true;
+        [SerializeField] [Range(0.06f, 0.56f)] private float routingLaneSpacing = 0.40f;
+        [SerializeField] [Range(0.08f, 0.64f)] private float routingNearParallelDistance = 0.48f;
+        [SerializeField] [Range(0.20f, 1.20f)] private float routingMinOverlap = 0.48f;
+        [SerializeField] [Range(0.20f, 2.00f)] private float routingMinStubNodeSizeMultiplier = 2.00f;
 
         private LevelRuntime _runtime;
         private GameStateMachine _stateMachine;
@@ -88,8 +101,10 @@ namespace CircuitOneStroke.Core
                 foreach (var ev in _edgeViews)
                 {
                     if (ev == null) continue;
+                    ev.SetHintStyle(dimNonCandidateEdges, emphasizeLegalEdgesWhileDrawing);
                     bool isCandidate = enableHints && edgeSet != null && edgeSet.Contains(ev.EdgeId);
-                    ev.SetMoveHint(isCandidate, enableHints);
+                    bool edgeHintActive = enableHints && (emphasizeLegalEdgesWhileDrawing || dimNonCandidateEdges);
+                    ev.SetMoveHint(isCandidate, edgeHintActive);
                 }
             }
         }
@@ -139,6 +154,7 @@ namespace CircuitOneStroke.Core
             if (strokeRenderer != null) strokeRenderer.Bind(_runtime);
             SpawnNodes();
             SpawnEdges();
+            AutoFramePuzzleCamera();
         }
 
         /// <summary>?꾪솚?? Yield between phases to prevent frame spikes.</summary>
@@ -158,6 +174,9 @@ namespace CircuitOneStroke.Core
             yield return null;
 
             SpawnEdges();
+            yield return null;
+
+            AutoFramePuzzleCamera();
             yield return null;
 
             RefreshNodeViews();
@@ -204,7 +223,13 @@ namespace CircuitOneStroke.Core
         {
             if (levelData.edges == null || edgeViewPrefab == null || edgesRoot == null) return;
             _edgeViews = new EdgeView[levelData.edges.Length];
-            var problemEdges = AestheticEvaluator.FindReadabilityProblemEdges(levelData, clearanceThreshold: 0.55f);
+            float effectiveLaneSpacing = Mathf.Max(0.36f, routingLaneSpacing);
+            float effectiveNearParallelDistance = Mathf.Max(effectiveLaneSpacing * 0.9f, routingNearParallelDistance);
+            float nodeVisualDiameter = EstimateNodeVisualDiameterWorld();
+            float effectiveMinStubFromCenter = Mathf.Max(0.20f, nodeVisualDiameter * routingMinStubNodeSizeMultiplier);
+            var routedByEdgeId = separateParallelOverlaps
+                ? OctilinearEdgeRouter.BuildRoutes(levelData, effectiveLaneSpacing, effectiveNearParallelDistance, routingMinOverlap, effectiveMinStubFromCenter)
+                : null;
             for (int i = 0; i < levelData.edges.Length; i++)
             {
                 var ed = levelData.edges[i];
@@ -214,8 +239,9 @@ namespace CircuitOneStroke.Core
                 var ev = go.GetComponent<EdgeView>();
                 if (ev != null)
                 {
-                    bool curveForReadability = problemEdges.Contains(ed.id);
-                    ev.Setup(ed.id, posA, posB, ed.diode, ed.gateGroupId, ed.initialGateOpen, _runtime, curveForReadability);
+                    Vector2[] route = null;
+                    routedByEdgeId?.TryGetValue(ed.id, out route);
+                    ev.Setup(ed.id, posA, posB, ed.diode, ed.gateGroupId, ed.initialGateOpen, _runtime, route);
                     _edgeViews[i] = ev;
                 }
             }
@@ -230,9 +256,84 @@ namespace CircuitOneStroke.Core
             return Vector2.zero;
         }
 
+        private float EstimateNodeVisualDiameterWorld()
+        {
+            float diameter = 1f;
+            if (nodeViewPrefab != null)
+            {
+                var sr = nodeViewPrefab.GetComponent<SpriteRenderer>() ?? nodeViewPrefab.GetComponentInChildren<SpriteRenderer>();
+                if (sr != null)
+                {
+                    float spriteSize = sr.sprite != null
+                        ? Mathf.Max(sr.sprite.bounds.size.x, sr.sprite.bounds.size.y)
+                        : 1f;
+                    float spriteScale = Mathf.Max(Mathf.Abs(sr.transform.localScale.x), Mathf.Abs(sr.transform.localScale.y));
+                    diameter = Mathf.Max(0.1f, spriteSize * spriteScale);
+                }
+
+                float prefabScale = Mathf.Max(Mathf.Abs(nodeViewPrefab.transform.localScale.x), Mathf.Abs(nodeViewPrefab.transform.localScale.y));
+                diameter *= Mathf.Max(0.01f, prefabScale);
+            }
+
+            float nodeSizeScale = 1f;
+            if (GameSettings.Instance?.Data != null)
+            {
+                nodeSizeScale = GameSettings.Instance.NodeSizeValue switch
+                {
+                    NodeSize.Small => 0.85f,
+                    NodeSize.Large => 1.2f,
+                    _ => 1f
+                };
+            }
+
+            return Mathf.Max(0.1f, diameter * nodeSizeScale);
+        }
+
         /// <summary>levelData??GameFlowController/RequestStartLevel?먯꽌 ?ㅼ젙. ?먮룞 濡쒕뱶 ?놁쓬.</summary>
         private void Start()
         {
+        }
+
+        private void AutoFramePuzzleCamera()
+        {
+            if (!autoFramePuzzle || levelData?.nodes == null || levelData.nodes.Length == 0)
+                return;
+
+            var cam = gameplayCamera != null ? gameplayCamera : Camera.main;
+            if (cam == null || !cam.orthographic)
+                return;
+
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+
+            for (int i = 0; i < levelData.nodes.Length; i++)
+            {
+                Vector2 p = levelData.nodes[i].pos;
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+            }
+
+            float pad = Mathf.Max(0f, framePaddingWorld);
+            minX -= pad;
+            maxX += pad;
+            minY -= pad;
+            maxY += pad;
+
+            float width = Mathf.Max(0.1f, maxX - minX);
+            float height = Mathf.Max(0.1f, maxY - minY);
+            float aspect = Mathf.Max(0.1f, cam.aspect);
+
+            float sizeForHeight = height * 0.5f;
+            float sizeForWidth = (width * 0.5f) / aspect;
+            float targetSize = Mathf.Max(sizeForHeight, sizeForWidth) * Mathf.Max(1f, frameSizeMultiplier);
+
+            Vector3 camPos = cam.transform.position;
+            cam.transform.position = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, camPos.z);
+            cam.orthographicSize = Mathf.Max(2.5f, targetSize);
         }
     }
 }

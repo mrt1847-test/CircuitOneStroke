@@ -15,19 +15,19 @@ MonoBehaviour:
   levelId: 6
   nodes:
   - id: 0
-    pos: {x: -4.113139, y: -1.7677753}
-    nodeType: 0
+    pos: {x: -0.8531871, y: 4.5521193}
+    nodeType: 2
     switchGroupId: 0
   - id: 1
-    pos: {x: -1.6407151, y: 4.2173643}
+    pos: {x: 4.3774095, y: 0.92406476}
     nodeType: 0
     switchGroupId: 0
   - id: 2
-    pos: {x: 4.1124754, y: 1.4875314}
+    pos: {x: 0.8903451, y: -4.518017}
     nodeType: 0
     switchGroupId: 0
   - id: 3
-    pos: {x: 1.5996834, y: -4.4940863}
+    pos: {x: -4.3402514, y: -0.88996243}
     nodeType: 0
     switchGroupId: 0
   edges:
@@ -67,3 +67,5 @@ MonoBehaviour:
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
+  solutionPath: 
+  solutionEdgesUndirected: []

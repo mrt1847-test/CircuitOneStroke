@@ -21,11 +21,30 @@ namespace CircuitOneStroke.UI
         /// <summary>광고 서비스. Registry → serialized component → AdServiceMock 순으로 조회.</summary>
         public static IAdService GetAdService(MonoBehaviour adServiceComponent = null)
         {
-            if (AdServiceRegistry.Instance != null)
+            if (AdServiceRegistry.Instance is MonoBehaviour regMb)
+            {
+                if (regMb.isActiveAndEnabled)
+                    return AdServiceRegistry.Instance;
+            }
+            else if (AdServiceRegistry.Instance != null)
+            {
                 return AdServiceRegistry.Instance;
+            }
+
             if (adServiceComponent != null && adServiceComponent is IAdService s)
-                return s;
-            return Object.FindFirstObjectByType<AdServiceMock>();
+            {
+                if (adServiceComponent.isActiveAndEnabled)
+                    return s;
+            }
+
+            // Fallback to an active mock in scene.
+            var mocks = Object.FindObjectsByType<AdServiceMock>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < mocks.Length; i++)
+            {
+                if (mocks[i] != null && mocks[i].isActiveAndEnabled)
+                    return mocks[i];
+            }
+            return null;
         }
     }
 }

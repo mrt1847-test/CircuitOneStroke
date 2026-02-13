@@ -29,18 +29,9 @@ namespace CircuitOneStroke.Editor
         private bool _advancedFoldout;
         private int _maxAttempts = 6000;
         private int _solutionCountMin = 1;
-        private int _solutionCountMaxEasy = 80;
-        private int _solutionCountMaxMedium = 120;
-        private int _solutionCountMaxHard = 200;
-        private float _earlyBranchingMinEasy = 1.4f;
-        private float _earlyBranchingMinMedium = 1.7f;
-        private float _earlyBranchingMinHard = 2.0f;
-        private float _deadEndDepthMinEasy = 2f;
-        private float _deadEndDepthMaxEasy = 6f;
-        private float _deadEndDepthMinMedium = 3f;
-        private float _deadEndDepthMaxMedium = 7f;
-        private float _deadEndDepthMinHard = 4f;
-        private float _deadEndDepthMaxHard = 8f;
+        private int _solutionCountMaxEasy = LevelGenerator.GetSolutionCountMax(DifficultyTier.Easy);
+        private int _solutionCountMaxMedium = LevelGenerator.GetSolutionCountMax(DifficultyTier.Medium);
+        private int _solutionCountMaxHard = LevelGenerator.GetSolutionCountMax(DifficultyTier.Hard);
         private Vector2 _scrollPos;
 
         [MenuItem("Circuit One-Stroke/Level Bake Tool")]
@@ -83,15 +74,6 @@ namespace CircuitOneStroke.Editor
                 _solutionCountMaxEasy = EditorGUILayout.IntField("Solution count max (Easy)", _solutionCountMaxEasy);
                 _solutionCountMaxMedium = EditorGUILayout.IntField("Solution count max (Medium)", _solutionCountMaxMedium);
                 _solutionCountMaxHard = EditorGUILayout.IntField("Solution count max (Hard)", _solutionCountMaxHard);
-                _earlyBranchingMinEasy = EditorGUILayout.FloatField("Early branching min (Easy)", _earlyBranchingMinEasy);
-                _earlyBranchingMinMedium = EditorGUILayout.FloatField("Early branching min (Medium)", _earlyBranchingMinMedium);
-                _earlyBranchingMinHard = EditorGUILayout.FloatField("Early branching min (Hard)", _earlyBranchingMinHard);
-                _deadEndDepthMinEasy = EditorGUILayout.FloatField("Dead-end depth min (Easy)", _deadEndDepthMinEasy);
-                _deadEndDepthMaxEasy = EditorGUILayout.FloatField("Dead-end depth max (Easy)", _deadEndDepthMaxEasy);
-                _deadEndDepthMinMedium = EditorGUILayout.FloatField("Dead-end depth min (Medium)", _deadEndDepthMinMedium);
-                _deadEndDepthMaxMedium = EditorGUILayout.FloatField("Dead-end depth max (Medium)", _deadEndDepthMaxMedium);
-                _deadEndDepthMinHard = EditorGUILayout.FloatField("Dead-end depth min (Hard)", _deadEndDepthMinHard);
-                _deadEndDepthMaxHard = EditorGUILayout.FloatField("Dead-end depth max (Hard)", _deadEndDepthMaxHard);
                 EditorGUI.indentLevel--;
             }
 
@@ -129,15 +111,20 @@ namespace CircuitOneStroke.Editor
             int solutions = result.solutionCount > 0 ? result.solutionCount : result.solutionsFoundWithinBudget;
             if (!solvable) return "custom_unsolvable";
             if (solutions < _solutionCountMin) return "custom_solution_count_too_low";
-            int maxCount = tier == DifficultyTier.Easy ? _solutionCountMaxEasy : tier == DifficultyTier.Medium ? _solutionCountMaxMedium : _solutionCountMaxHard;
+            int maxCount = GetSolutionCountMaxCustom(tier);
             if (solutions > maxCount) return "custom_solution_count_too_high";
-            float branchMin = tier == DifficultyTier.Easy ? _earlyBranchingMinEasy : tier == DifficultyTier.Medium ? _earlyBranchingMinMedium : _earlyBranchingMinHard;
-            if (result.earlyBranching < branchMin) return "custom_early_branching_too_low";
-            float depthMin = tier == DifficultyTier.Easy ? _deadEndDepthMinEasy : tier == DifficultyTier.Medium ? _deadEndDepthMinMedium : _deadEndDepthMinHard;
-            float depthMax = tier == DifficultyTier.Easy ? _deadEndDepthMaxEasy : tier == DifficultyTier.Medium ? _deadEndDepthMaxMedium : _deadEndDepthMaxHard;
-            if (result.deadEndDepthAvg < depthMin) return "custom_dead_end_depth_too_low";
-            if (result.deadEndDepthAvg > depthMax) return "custom_dead_end_depth_too_high";
             return null;
+        }
+
+        private int GetSolutionCountMaxCustom(DifficultyTier tier)
+        {
+            return tier switch
+            {
+                DifficultyTier.Easy => _solutionCountMaxEasy,
+                DifficultyTier.Medium => _solutionCountMaxMedium,
+                DifficultyTier.Hard => _solutionCountMaxHard,
+                _ => LevelGenerator.GetSolutionCountMax(tier)
+            };
         }
 
         private void DoGenerateAndSave()
@@ -242,7 +229,7 @@ namespace CircuitOneStroke.Editor
 
                         string metaPath = $"{_outputFolder}/Level_{levelId}_meta.json";
                         int solutions = result.solutionCount > 0 ? result.solutionCount : result.solutionsFoundWithinBudget;
-                        string metaJson = $"{{\"seed\":{seed},\"templateName\":\"{templateName}\",\"tier\":\"{_tier}\",\"solutionCount\":{solutions},\"nodesExpanded\":{result.nodesExpanded},\"earlyBranching\":{result.earlyBranching:F2},\"deadEndDepthAvg\":{result.deadEndDepthAvg:F2},\"forbiddenNodePercent\":{_forbiddenNodePercent:F1}}}";
+                        string metaJson = $"{{\"seed\":{seed},\"templateName\":\"{templateName}\",\"tier\":\"{_tier}\",\"solutionCount\":{solutions},\"nodesExpanded\":{result.nodesExpanded},\"forbiddenNodePercent\":{_forbiddenNodePercent:F1}}}";
                         File.WriteAllText(metaPath, metaJson);
 
                         savedLevels.Add(level);

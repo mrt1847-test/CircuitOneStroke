@@ -15,20 +15,20 @@ MonoBehaviour:
   levelId: 20
   nodes:
   - id: 0
-    pos: {x: 0.5151553, y: 4.5552473}
+    pos: {x: -4.150525, y: -0.776037}
     nodeType: 0
     switchGroupId: 0
   - id: 1
-    pos: {x: 4.5972314, y: -0.0017183349}
+    pos: {x: 0.96413493, y: -4.20033}
     nodeType: 0
     switchGroupId: 0
   - id: 2
-    pos: {x: -4.7438555, y: -0.19846578}
+    pos: {x: 4.373908, y: 0.9361094}
     nodeType: 0
     switchGroupId: 0
   - id: 3
-    pos: {x: -0.025209844, y: -4.2052846}
-    nodeType: 0
+    pos: {x: -0.74075174, y: 4.360402}
+    nodeType: 2
     switchGroupId: 0
   edges:
   - id: 0
@@ -51,13 +51,13 @@ MonoBehaviour:
     initialGateOpen: 1
   - id: 3
     a: 0
-    b: 3
+    b: 2
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
   - id: 4
     a: 0
-    b: 2
+    b: 3
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
@@ -67,3 +67,5 @@ MonoBehaviour:
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
+  solutionPath: 
+  solutionEdgesUndirected: []

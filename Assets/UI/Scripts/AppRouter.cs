@@ -147,6 +147,14 @@ namespace CircuitOneStroke.UI
 
         public void RequestStartLevel(int levelId)
         {
+            int max = levelManifest != null ? Mathf.Max(1, levelManifest.Count) : 20;
+            int unlocked = LevelRecords.LastUnlockedLevelId(max);
+            if (levelId > unlocked)
+            {
+                ShowToast($"Level {unlocked}을(를) 먼저 클리어하세요.");
+                levelId = unlocked;
+            }
+
             if (DebugAppScene) Debug.Log($"[AppScene] RequestStartLevel(levelId={levelId})");
             LastIntent = new LastIntent { type = IntentType.StartLevel, levelId = levelId };
             if (gameFlowController != null) gameFlowController.SetLastIntent(LastIntent);
@@ -174,7 +182,10 @@ namespace CircuitOneStroke.UI
 
         public void RequestNext()
         {
-            int currentId = levelLoader?.LevelData != null ? levelLoader.LevelData.levelId : CurrentLevelId;
+            int fromLoader = levelLoader?.LevelData != null ? levelLoader.LevelData.levelId : 0;
+            int fromCurrent = CurrentLevelId;
+            int fromPrefs = LevelRecords.LastPlayedLevelId;
+            int currentId = Mathf.Max(fromLoader, Mathf.Max(fromCurrent, fromPrefs));
             if (currentId <= 0) currentId = 1;
             int nextId = levelManifest != null ? levelManifest.GetNextLevelId(currentId) : currentId + 1;
             LastIntent = new LastIntent { type = IntentType.NextLevel, levelId = nextId };
@@ -191,7 +202,9 @@ namespace CircuitOneStroke.UI
         {
             overlayManager?.HideResult();
             overlayManager?.HideOutOfHearts();
-            // RefillFull is done inside HeartsRefillAdFlow before this callback
+            // Safety net: if ad SDK callback ordering is inconsistent, keep game playable.
+            if (HeartsManager.Instance != null && !HeartsManager.Instance.CanStartAttempt())
+                HeartsManager.Instance.RefillFull();
             ResumeLastIntent();
         }
 
@@ -203,12 +216,27 @@ namespace CircuitOneStroke.UI
             switch (intent.type)
             {
                 case IntentType.StartLevel:
+                    if (!HeartsManager.Instance.CanStartAttempt())
+                    {
+                        overlayManager?.ShowOutOfHearts(OutOfHeartsContext.FromLevelSelect, OnRefillThenResume, () => { });
+                        return;
+                    }
                     StartCoroutine(RunTransitionThenEnterGame(intent.levelId));
                     break;
                 case IntentType.RetryLevel:
+                    if (!HeartsManager.Instance.CanStartAttempt())
+                    {
+                        overlayManager?.ShowOutOfHearts(OutOfHeartsContext.FromResultLose, OnRefillThenResume, () => { });
+                        return;
+                    }
                     StartCoroutine(RunTransitionThenEnterGame(intent.levelId));
                     break;
                 case IntentType.NextLevel:
+                    if (!HeartsManager.Instance.CanStartAttempt())
+                    {
+                        overlayManager?.ShowOutOfHearts(OutOfHeartsContext.FromResultWin, OnRefillThenResume, () => { });
+                        return;
+                    }
                     StartCoroutine(TryInterstitialThenEnterGame(intent.levelId));
                     break;
             }

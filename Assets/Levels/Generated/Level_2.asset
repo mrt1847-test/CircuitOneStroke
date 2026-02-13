@@ -15,121 +15,159 @@ MonoBehaviour:
   levelId: 2
   nodes:
   - id: 0
-    pos: {x: 2.2265189, y: 3.1288478}
+    pos: {x: -4.41427, y: 1.1516811}
     nodeType: 0
     switchGroupId: 0
   - id: 1
-    pos: {x: 3.6100364, y: -1.0560465}
+    pos: {x: -2.9515936, y: 1.1516811}
     nodeType: 0
     switchGroupId: 0
   - id: 2
-    pos: {x: 0.18530819, y: -3.8513772}
+    pos: {x: -4.41427, y: -0.84043825}
     nodeType: 0
     switchGroupId: 0
   - id: 3
-    pos: {x: -2.2399619, y: -1.8163829}
+    pos: {x: -2.9515936, y: -0.84043825}
     nodeType: 0
     switchGroupId: 0
   - id: 4
-    pos: {x: -2.3185608, y: 1.4799389}
+    pos: {x: -0.75757945, y: 0.8196612}
     nodeType: 0
     switchGroupId: 0
   - id: 5
-    pos: {x: 0.7336598, y: 2.677781}
+    pos: {x: -0.75757945, y: -1.1724582}
     nodeType: 0
     switchGroupId: 0
   - id: 6
-    pos: {x: 2.8154035, y: 0.2805236}
-    nodeType: 0
+    pos: {x: 0.7050967, y: -1.1724582}
+    nodeType: 2
     switchGroupId: 0
   - id: 7
-    pos: {x: 0.97963935, y: -2.584089}
+    pos: {x: 0.7050967, y: 0.8196612}
     nodeType: 0
     switchGroupId: 0
   - id: 8
-    pos: {x: -3.55926, y: -1.3992656}
+    pos: {x: 2.899111, y: -0.84043825}
     nodeType: 1
     switchGroupId: 1
   - id: 9
-    pos: {x: -2.2523794, y: 2.909549}
+    pos: {x: 2.899111, y: 1.1516811}
     nodeType: 0
+    switchGroupId: 0
+  - id: 10
+    pos: {x: 4.3617873, y: -0.84043825}
+    nodeType: 0
+    switchGroupId: 0
+  - id: 11
+    pos: {x: 4.3617873, y: 1.1516811}
+    nodeType: 2
     switchGroupId: 0
   edges:
   - id: 0
     a: 0
-    b: 5
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 1
-    a: 5
-    b: 9
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 2
-    a: 9
-    b: 2
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 3
-    a: 5
-    b: 8
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 4
-    a: 8
-    b: 9
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 5
-    a: 9
     b: 1
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
-  - id: 6
+  - id: 1
     a: 1
     b: 2
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
-  - id: 7
-    a: 8
+  - id: 2
+    a: 2
     b: 3
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
-  - id: 8
+  - id: 3
     a: 3
-    b: 6
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 9
-    a: 6
-    b: 1
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 10
-    a: 3
-    b: 7
-    diode: 0
-    gateGroupId: -1
-    initialGateOpen: 1
-  - id: 11
-    a: 7
     b: 4
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1
-  - id: 12
+  - id: 4
     a: 4
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 5
+    a: 5
     b: 6
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 6
+    a: 6
+    b: 7
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 7
+    a: 7
+    b: 8
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 8
+    a: 8
+    b: 9
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 9
+    a: 9
+    b: 10
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 10
+    a: 10
+    b: 11
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 11
+    a: 1
+    b: 9
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 12
+    a: 9
+    b: 11
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 13
+    a: 5
+    b: 7
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 14
+    a: 4
+    b: 7
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 15
+    a: 2
+    b: 4
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 16
+    a: 3
+    b: 5
+    diode: 0
+    gateGroupId: -1
+    initialGateOpen: 1
+  - id: 17
+    a: 8
+    b: 10
     diode: 0
     gateGroupId: -1
     initialGateOpen: 1

@@ -57,6 +57,14 @@ namespace CircuitOneStroke.Core
 
         public void RequestStartLevel(int levelId)
         {
+            int max = levelManifest != null ? Mathf.Max(1, levelManifest.Count) : DefaultMaxLevels;
+            int unlocked = LevelRecords.LastUnlockedLevelId(max);
+            if (levelId > unlocked)
+            {
+                GameFeedback.RequestToast($"Level {unlocked}을(를) 먼저 클리어하세요.");
+                levelId = unlocked;
+            }
+
             LastIntent = new LastIntent { type = IntentType.StartLevel, levelId = levelId };
             if (!HeartsManager.Instance.CanStartAttempt())
             {
@@ -81,7 +89,11 @@ namespace CircuitOneStroke.Core
 
         public void RequestNextLevel()
         {
-            int currentId = levelLoader?.LevelData != null ? levelLoader.LevelData.levelId : 1;
+            int fromLoader = levelLoader?.LevelData != null ? levelLoader.LevelData.levelId : 0;
+            int fromIntent = LastIntent.levelId;
+            int fromPrefs = LevelRecords.LastPlayedLevelId;
+            int currentId = Mathf.Max(fromLoader, Mathf.Max(fromIntent, fromPrefs));
+            if (currentId <= 0) currentId = 1;
             int nextId = GetNextLevelId(currentId);
             LastIntent = new LastIntent { type = IntentType.NextLevel, levelId = nextId };
             if (!HeartsManager.Instance.CanStartAttempt())

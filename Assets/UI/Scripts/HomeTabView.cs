@@ -36,7 +36,7 @@ namespace CircuitOneStroke.UI
         {
             if (continueButton != null) return;
 
-            var direct = transform.Find("PlayButton");
+            var direct = transform.Find("ContinueButton");
             if (direct != null)
                 continueButton = direct.GetComponent<Button>();
             if (continueButton != null) return;
@@ -46,11 +46,13 @@ namespace CircuitOneStroke.UI
             {
                 var btn = buttons[i];
                 if (btn == null) continue;
+                if (btn.GetComponentInParent<LevelSelectScreen>(true) != null)
+                    continue;
                 var txt = btn.GetComponentInChildren<Text>(true);
                 var value = txt != null ? txt.text : string.Empty;
                 if (string.IsNullOrWhiteSpace(value)) continue;
                 var normalized = value.Trim().ToUpperInvariant();
-                if (normalized == "PLAY" || normalized == "CONTINUE" || normalized == "CONTINUE / PLAY")
+                if (normalized == "CONTINUE" || normalized == "CONTINUE / PLAY")
                 {
                     continueButton = btn;
                     return;

@@ -72,6 +72,12 @@ namespace CircuitOneStroke.Generation
         private const float MaxChainLenRatioRejectHard = 0.35f;
         private const float MaxChainLenRatioRejectMedium = 0.45f;
         private const float JitterMaxFractionOfAvgEdge = 0.025f;
+        private const int GridMinSize = 6;
+        private const int GridMaxSize = 8;
+        private const bool GridUseStaggeredRows = true;
+        private const int GridSwapAttemptsMin = 180;
+        private const int GridSwapAttemptsMax = 700;
+        private const int GridOptimizeTimeBudgetMs = 6;
         private const int LayoutRetryCount = 25;
         private const int GateTradeoffRetryCount = 15;
         private const int BaseGraphValidateRetries = 35;
@@ -86,6 +92,8 @@ namespace CircuitOneStroke.Generation
         private const float RingLikeRadiusCvThreshold = 0.22f;
         private const int ForbiddenNodePlacementRetries = 12;
         private const int MinBulbsAfterForbidden = 3;
+        private const float TemplateTopologyUseChance = 0.72f;
+        private const float TemplateTopologyUseChanceVarietyMode = 0.45f;
         private static string _lastGenerateBasePrimaryRejectReason = "none";
         private static string _lastGenerateBaseRejectSummary = "none";
 
@@ -215,6 +223,7 @@ namespace CircuitOneStroke.Generation
             Vector2[] positions = PlaceNodesWithLayout(n, rng, edgeList, seed, out string layoutName, out bool layoutFromTemplate);
             if (positions == null || positions.Length != n)
                 positions = PlaceNodesOnCircleFallback(n, rng);
+            positions = ApplyGridPostLayout(positions, edgeList, rng, seed, string.IsNullOrEmpty(layoutName) ? "fallback" : layoutName);
             if (string.IsNullOrEmpty(templateName) && !string.IsNullOrEmpty(layoutName))
                 templateName = layoutName;
 
@@ -489,6 +498,19 @@ namespace CircuitOneStroke.Generation
                     UnityEngine.Object.DestroyImmediate(candidates[i].level);
             _lastGenerateBasePrimaryRejectReason = "none";
             _lastGenerateBaseRejectSummary = "none";
+            if (chosen != null && chosen.nodes != null && chosen.edges != null)
+            {
+                Vector2[] snapped = ApplyGridPostLayout(LevelPositions(chosen), new List<EdgeData>(chosen.edges), rng, seed, "GenerateBaseFinal");
+                if (snapped != null && snapped.Length == chosen.nodes.Length)
+                {
+                    for (int i = 0; i < chosen.nodes.Length; i++)
+                    {
+                        int nodeId = chosen.nodes[i].id;
+                        if (nodeId >= 0 && nodeId < snapped.Length)
+                            chosen.nodes[i].pos = snapped[nodeId];
+                    }
+                }
+            }
             if (EnableLayoutDebugLog && chosen != null)
                 UnityEngine.Debug.Log($"[Layout] GenerateBase N={N} seed={seed} candidates={candidates.Count} topM={topCount} picked={pickIndex} score={(chosen != null ? AestheticEvaluator.Score(chosen) : 0f):F2}");
             return chosen;
@@ -829,14 +851,21 @@ namespace CircuitOneStroke.Generation
             string topologyName = null;
             int switchOutputNodeId = -1;
             LevelTemplate? t = null;
+            var templateCandidates = new List<LevelTemplate>(4);
             for (int i = 0; i < LevelTemplates.All.Length; i++)
             {
                 if (LevelTemplates.All[i].nodeCount == N)
                 {
-                    t = LevelTemplates.All[i];
-                    topologyName = t.Value.name;
-                    break;
+                    templateCandidates.Add(LevelTemplates.All[i]);
                 }
+            }
+            float templateUseChance = opts.RequireNormalHardVariety
+                ? TemplateTopologyUseChanceVarietyMode
+                : TemplateTopologyUseChance;
+            if (templateCandidates.Count > 0 && rng.NextDouble() < templateUseChance)
+            {
+                t = templateCandidates[rng.Next(templateCandidates.Count)];
+                topologyName = t.Value.name;
             }
             if (t.HasValue)
             {
@@ -859,7 +888,7 @@ namespace CircuitOneStroke.Generation
             if (edgeList == null)
             {
                 edgeList = GenerateBaseGraphTopology(N, rng);
-                topologyName = "RandomTopology";
+                topologyName = templateCandidates.Count > 0 ? "RandomTopologyMixed" : "RandomTopology";
                 if (opts.IncludeSwitch && opts.SwitchCount > 0 && N >= 2)
                     switchOutputNodeId = rng.Next(1, N);
             }
@@ -901,8 +930,20 @@ namespace CircuitOneStroke.Generation
         private static List<(int a, int b)> GenerateBaseGraphTopology(int N, System.Random rng)
         {
             var edgeSet = new HashSet<(int a, int b)>();
-            for (int i = 0; i < N - 1; i++)
-                edgeSet.Add((i, i + 1));
+
+            // Build a random spanning tree first so baseline shape is not always a straight chain.
+            var order = new int[N];
+            for (int i = 0; i < N; i++) order[i] = i;
+            Shuffle(order, rng);
+            for (int i = 1; i < N; i++)
+            {
+                int parentIndex = rng.Next(i);
+                int u = order[i];
+                int v = order[parentIndex];
+                if (u > v) (u, v) = (v, u);
+                edgeSet.Add((u, v));
+            }
+
             float targetAvgDegree = N <= 12 ? 3.0f : (N <= 16 ? 3.2f : 3.5f);
             int completeEdgeCount = N * (N - 1) / 2;
             int targetEdges = Mathf.Clamp((int)Math.Round(N * targetAvgDegree * 0.5f), N - 1, completeEdgeCount);
@@ -1128,6 +1169,33 @@ namespace CircuitOneStroke.Generation
             return chosen.pos;
         }
 
+        private static Vector2[] ApplyGridPostLayout(Vector2[] positions, List<EdgeData> edgeList, System.Random rng, int seed, string layoutName)
+        {
+            if (positions == null || edgeList == null || edgeList.Count == 0)
+                return positions;
+
+            var options = GridLayoutPlacer.Options.Default;
+            options.MinGridSize = GridMinSize;
+            options.MaxGridSize = GridMaxSize;
+            options.EnableStaggeredRows = GridUseStaggeredRows;
+            options.SwapAttemptsMin = GridSwapAttemptsMin;
+            options.SwapAttemptsMax = GridSwapAttemptsMax;
+            options.TimeBudgetMs = GridOptimizeTimeBudgetMs;
+            options.LayoutName = layoutName;
+
+            if (!GridLayoutPlacer.TrySnapAndOptimize(positions, edgeList, rng, options, out var optimized, out var before, out var after))
+                return positions;
+
+            if (EnableLayoutDebugLog)
+            {
+                UnityEngine.Debug.Log(
+                    $"[GridLayout] N={positions.Length} seed={seed} layout={layoutName} " +
+                    $"crossingCount {before.crossingCount}->{after.crossingCount}, " +
+                    $"longEdgeShare {before.longEdgeShare:F3}->{after.longEdgeShare:F3}");
+            }
+            return optimized;
+        }
+
         private static void BuildShapePreservingSlotPermutation(string layoutName, int n, System.Random rng, int[] slotPerm)
         {
             if (slotPerm == null || slotPerm.Length < n) return;
@@ -1273,29 +1341,28 @@ namespace CircuitOneStroke.Generation
         }
 
         /// <summary>
+        /// Tier-specific upper bound for accepted solution count.
+        /// </summary>
+        public static int GetSolutionCountMax(DifficultyTier tier)
+        {
+            return tier switch
+            {
+                DifficultyTier.Easy => 80,
+                DifficultyTier.Medium => 120,
+                DifficultyTier.Hard => 200,
+                _ => 200
+            };
+        }
+
+        /// <summary>
         /// Default acceptance rules for generated levels. Used by LevelBakeTool.
         /// </summary>
         public static bool PassesFilter(DifficultyTier tier, SolverResult result)
         {
             if (!result.solvable || result.solutionCount <= 0)
                 return false;
-            switch (tier)
-            {
-                case DifficultyTier.Easy:
-                    return result.solutionCount >= 1 && result.solutionCount <= 80
-                        && result.earlyBranching >= 1.4f
-                        && result.deadEndDepthAvg >= 2f && result.deadEndDepthAvg <= 6f;
-                case DifficultyTier.Medium:
-                    return result.solutionCount >= 1 && result.solutionCount <= 120
-                        && result.earlyBranching >= 1.7f
-                        && result.deadEndDepthAvg >= 3f && result.deadEndDepthAvg <= 7f;
-                case DifficultyTier.Hard:
-                    return result.solutionCount >= 1 && result.solutionCount <= 200
-                        && result.earlyBranching >= 2.0f
-                        && result.deadEndDepthAvg >= 4f && result.deadEndDepthAvg <= 8f;
-                default:
-                    return false;
-            }
+            int maxSolutions = GetSolutionCountMax(tier);
+            return result.solutionCount >= 1 && result.solutionCount <= maxSolutions;
         }
     }
 }
